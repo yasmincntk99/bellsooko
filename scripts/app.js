@@ -278,34 +278,80 @@ const ANNOUNCEMENTS = {
     en: "Attention, all students and teachers are requested to proceed to the ceremony field immediately. The flag ceremony will begin shortly."
   },
   selasa_kamis: {
-    id: "Selamat pagi, seluruh siswa dimohon memasuki kelas masing-masing untuk memulai kegiatan literasi pagi.",
+    id: "Selamat pagi, seluruh siswa dimohon memasuki kelas masing-masing untuk memulai kegiatan literasi Al quran.",
     en: "Good morning, all students are requested to enter their classrooms to begin the morning literacy session."
   },
   jumat: {
-    id: "Selamat pagi, seluruh siswa dan bapak ibu guru dimohon menuju tempat istighosah untuk mengikuti kegiatan istighosah pagi.",
-    en: "Good morning, all students and teachers are requested to proceed to the designated area for the morning Istighosah session."
+    id: "Selamat pagi, seluruh siswa dan bapak ibu guru dimohon masuk kelas untuk mengikuti kegiatan istighosah pagi.",
+    en: "Good morning, all students and teachers are requested to proceed to classroom for the morning Istighosah session."
   }
 };
 
-// Mainkan 1 kalimat TTS, resolve setelah selesai (atau langsung kalau error/nggak didukung)
-// biar bisa disusun berurutan (ID dulu, baru EN) tanpa numpuk/tabrakan.
-function speak(text, lang) {
+// Cari voice yang paling mendekati "suara perempuan" untuk bahasa tertentu.
+// CATATAN JUJUR: Web Speech API TIDAK punya field gender resmi. Ini cuma
+// heuristik nebak dari nama voice-nya. Kalau device cuma punya 1 voice
+// untuk bahasa itu dan kebetulan suara pria, hasilnya ya tetap suara pria -
+// nggak ada cara memaksa gender lewat kode di browser manapun.
+const FEMALE_VOICE_HINTS = [
+  "female", "wanita", "perempuan", "zira", "samantha", "susan",
+  "gadis", "ayu", "damayanti", "heera", "salli", "joanna", "ivy"
+];
+
+function pickFemaleVoice(langPrefix, voices) {
+  const matches = voices.filter(v => v.lang.toLowerCase().startsWith(langPrefix));
+  if (matches.length === 0) return null;
+
+  const femaleMatch = matches.find(v =>
+    FEMALE_VOICE_HINTS.some(hint => v.name.toLowerCase().includes(hint))
+  );
+
+  return femaleMatch || matches[0]; // kalau nggak ketemu, pakai voice pertama yang ada buat bahasa itu
+}
+
+// Voice list di beberapa browser di-load async, jadi getVoices() awal bisa kosong.
+function waitForVoices() {
   return new Promise((resolve) => {
-    if (!("speechSynthesis" in window)) {
-      resolve();
+    const existing = window.speechSynthesis.getVoices();
+    if (existing.length > 0) {
+      resolve(existing);
       return;
     }
+    window.speechSynthesis.onvoiceschanged = () => resolve(window.speechSynthesis.getVoices());
+    setTimeout(() => resolve(window.speechSynthesis.getVoices()), 1000); // jaga-jaga kalau event nggak pernah fire
+  });
+}
+
+function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+// Mainkan 1 kalimat TTS dengan voice perempuan (best-effort), resolve setelah
+// selesai (atau langsung kalau error/nggak didukung) biar bisa disusun
+// berurutan (ID dulu, baru EN) tanpa numpuk/tabrakan.
+async function speak(text, lang) {
+  if (!("speechSynthesis" in window)) return;
+
+  const voices = await waitForVoices();
+  const voice = pickFemaleVoice(lang.split("-")[0], voices);
+
+  return new Promise((resolve) => {
     const utter = new SpeechSynthesisUtterance(text);
     utter.lang = lang;
+    if (voice) utter.voice = voice;
     utter.onend = resolve;
     utter.onerror = resolve; // jangan sampai 1 error bikin urutan macet total
     window.speechSynthesis.speak(utter);
   });
 }
 
+// Bel di momen ini sudah otomatis bunyi lewat updateSession() (mekanisme umum
+// tiap pergantian sesi). Di sini kita cuma nunggu 5 detik lalu nyusul
+// pengumuman ID -> EN -> Indonesia Raya, ala PA system bandara/stasiun.
 async function playMorningAnnouncement(dayGroup) {
   const ann = ANNOUNCEMENTS[dayGroup];
   if (!ann) return;
+
+  await sleep(5000);
 
   if (!("speechSynthesis" in window)) {
     if (statusEl) {
