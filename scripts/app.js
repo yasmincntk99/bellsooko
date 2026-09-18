@@ -275,13 +275,16 @@ function playIndonesiaRaya() {
 const ANNOUNCEMENTS = {
   senin: {
     id: "Perhatian, kepada seluruh siswa dan bapak ibu guru, dimohon segera menuju lapangan upacara. Upacara bendera akan segera dimulai.",
+    id: "Perhatian, kepada seluruh siswa dan bapak ibu guru, dimohon segera menuju lapangan upacara. Upacara bendera akan segera dimulai.",
     en: "Attention, all students and teachers are requested to proceed to the ceremony field immediately. The flag ceremony will begin shortly."
   },
   selasa_kamis: {
     id: "Selamat pagi, seluruh siswa dimohon memasuki kelas masing-masing untuk memulai kegiatan literasi Al quran.",
+    id: "Selamat pagi, seluruh siswa dimohon memasuki kelas masing-masing untuk memulai kegiatan literasi Al quran.",
     en: "Good morning, all students are requested to enter their classrooms to begin the morning literacy session."
   },
   jumat: {
+    id: "Selamat pagi, seluruh siswa dan bapak ibu guru dimohon masuk kelas untuk mengikuti kegiatan istighosah pagi.",
     id: "Selamat pagi, seluruh siswa dan bapak ibu guru dimohon masuk kelas untuk mengikuti kegiatan istighosah pagi.",
     en: "Good morning, all students and teachers are requested to proceed to classroom for the morning Istighosah session."
   }
