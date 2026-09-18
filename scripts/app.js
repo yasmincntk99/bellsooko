@@ -269,25 +269,28 @@ function playIndonesiaRaya() {
 
 // ==========================
 // ANNOUNCEMENT (TTS) - jam 06:45
-// ⚠️ TODO: teks ini masih DRAFT, tunggu revisi final dari sekolah.
-// Format: { id: teks Bahasa Indonesia, en: teks Bahasa Inggris }
+// ⚠️ TODO: teks ini masih DRAFT (termasuk JP/KO/AR, hasil terjemahan sendiri,
+// belum dicek penutur asli), tunggu revisi final dari sekolah.
+// Format: array of segments, diputar berurutan sesuai urutan array-nya.
+// Struktur ini sengaja generic (bukan field id/en tetap) supaya nambah/kurang
+// bahasa di masa depan cukup edit data ini, tanpa ubah logic pemutaran.
 // ==========================
 const ANNOUNCEMENTS = {
-  senin: {
-    id: "Perhatian, kepada seluruh siswa dan bapak ibu guru, dimohon segera menuju lapangan upacara. Upacara bendera akan segera dimulai.",
-    id: "Perhatian, kepada seluruh siswa dan bapak ibu guru, dimohon segera menuju lapangan upacara. Upacara bendera akan segera dimulai.",
-    en: "Attention, all students and teachers are requested to proceed to the ceremony field immediately. The flag ceremony will begin shortly."
-  },
-  selasa_kamis: {
-    id: "Selamat pagi, seluruh siswa dimohon memasuki kelas masing-masing untuk memulai kegiatan literasi Al quran.",
-    id: "Selamat pagi, seluruh siswa dimohon memasuki kelas masing-masing untuk memulai kegiatan literasi Al quran.",
-    en: "Good morning, all students are requested to enter their classrooms to begin the morning literacy session."
-  },
-  jumat: {
-    id: "Selamat pagi, seluruh siswa dan bapak ibu guru dimohon masuk kelas untuk mengikuti kegiatan istighosah pagi.",
-    id: "Selamat pagi, seluruh siswa dan bapak ibu guru dimohon masuk kelas untuk mengikuti kegiatan istighosah pagi.",
-    en: "Good morning, all students and teachers are requested to proceed to classroom for the morning Istighosah session."
-  }
+  senin: [
+    { lang: "id-ID", text: "Perhatian, kepada seluruh siswa dan bapak ibu guru, dimohon segera menuju lapangan upacara. Upacara bendera akan segera dimulai." },
+    { lang: "en-US", text: "Attention, all students and teachers are requested to proceed to the ceremony field immediately. The flag ceremony will begin shortly." },
+    { lang: "ja-JP", text: "生徒および教職員の皆様にお知らせします。直ちに式典広場へ移動してください。まもなく国旗掲揚式が始まります。" }
+  ],
+  selasa_kamis: [
+    { lang: "id-ID", text: "Selamat pagi, seluruh siswa dimohon memasuki kelas masing-masing untuk memulai kegiatan literasi pagi." },
+    { lang: "en-US", text: "Good morning, all students are requested to enter their classrooms to begin the morning literacy session." },
+    { lang: "ko-KR", text: "안녕하세요, 모든 학생 여러분은 각자의 교실로 들어가 아침 문해력 활동을 시작해 주시기 바랍니다." }
+  ],
+  jumat: [
+    { lang: "id-ID", text: "Selamat pagi, seluruh siswa dan bapak ibu guru dimohon menuju tempat istighosah untuk mengikuti kegiatan istighosah pagi." },
+    { lang: "en-US", text: "Good morning, all students and teachers are requested to proceed to the designated area for the morning Istighosah session." },
+    { lang: "ar-SA", text: "صباح الخير، يُرجى من جميع الطلاب والمعلمين التوجه إلى المكان المخصص لحضور جلسة الاستغاثة الصباحية." }
+  ]
 };
 
 // Cari voice yang paling mendekati "suara perempuan" untuk bahasa tertentu.
@@ -335,7 +338,14 @@ async function speak(text, lang) {
   if (!("speechSynthesis" in window)) return;
 
   const voices = await waitForVoices();
-  const voice = pickFemaleVoice(lang.split("-")[0], voices);
+  const langPrefix = lang.split("-")[0];
+  const hasAnyVoiceForLang = voices.some(v => v.lang.toLowerCase().startsWith(langPrefix));
+
+  if (!hasAnyVoiceForLang) {
+    console.warn(`[TTS] Tidak ada voice terpasang untuk bahasa "${lang}" di device ini. Pengumuman tetap dicoba diputar pakai voice default, tapi kemungkinan pelafalannya salah/tidak terbaca.`);
+  }
+
+  const voice = pickFemaleVoice(langPrefix, voices);
 
   return new Promise((resolve) => {
     const utter = new SpeechSynthesisUtterance(text);
@@ -349,10 +359,11 @@ async function speak(text, lang) {
 
 // Bel di momen ini sudah otomatis bunyi lewat updateSession() (mekanisme umum
 // tiap pergantian sesi). Di sini kita cuma nunggu 5 detik lalu nyusul
-// pengumuman ID -> EN -> Indonesia Raya, ala PA system bandara/stasiun.
+// pengumuman multi-bahasa berurutan (sesuai urutan array di ANNOUNCEMENTS),
+// baru Indonesia Raya, ala PA system bandara/stasiun.
 async function playMorningAnnouncement(dayGroup) {
-  const ann = ANNOUNCEMENTS[dayGroup];
-  if (!ann) return;
+  const segments = ANNOUNCEMENTS[dayGroup];
+  if (!segments || segments.length === 0) return;
 
   await sleep(5000);
 
@@ -364,8 +375,10 @@ async function playMorningAnnouncement(dayGroup) {
     return;
   }
 
-  await speak(ann.id, "id-ID");
-  await speak(ann.en, "en-US");
+  for (const segment of segments) {
+    await speak(segment.text, segment.lang);
+  }
+
   playIndonesiaRaya();
 }
 
