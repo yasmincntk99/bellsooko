@@ -154,19 +154,23 @@ const SCHEDULE_JUMAT = [
 // Dipilih berdasarkan hari (0=Minggu ... 6=Sabtu).
 // Sabtu & Minggu belum ada jadwal (libur) -> array kosong.
 // ==========================
-function generateSchedule(date = clock.currentTime) {
+function getDayGroup(date) {
   const day = date.getDay();
+  if (day === 1) return "senin";
+  if (day >= 2 && day <= 4) return "selasa_kamis";
+  if (day === 5) return "jumat";
+  return null; // Sabtu / Minggu
+}
 
-  switch (day) {
-    case 1: // Senin
+function generateSchedule(date = clock.currentTime) {
+  switch (getDayGroup(date)) {
+    case "senin":
       return SCHEDULE_SENIN;
-    case 2: // Selasa
-    case 3: // Rabu
-    case 4: // Kamis
+    case "selasa_kamis":
       return SCHEDULE_SELASA_KAMIS;
-    case 5: // Jumat
+    case "jumat":
       return SCHEDULE_JUMAT;
-    default: // Sabtu & Minggu
+    default:
       return [];
   }
 }
@@ -264,28 +268,76 @@ function playIndonesiaRaya() {
 }
 
 // ==========================
-// INDONESIA RAYA
-// Dimainkan di JAM MULAI sesi pertama hari itu (bukan hardcode 07:00),
-// karena tiap hari beda: Senin/Selasa-Kamis/Jumat semua mulai 06:45,
-// tapi ini dibuat generic biar kalau jadwal berubah lagi, tetap sinkron.
+// ANNOUNCEMENT (TTS) - jam 06:45
+// ⚠️ TODO: teks ini masih DRAFT, tunggu revisi final dari sekolah.
+// Format: { id: teks Bahasa Indonesia, en: teks Bahasa Inggris }
 // ==========================
-let lastIndonesiaRayaDate = null;
+const ANNOUNCEMENTS = {
+  senin: {
+    id: "Perhatian, kepada seluruh siswa dan bapak ibu guru, dimohon segera menuju lapangan upacara. Upacara bendera akan segera dimulai.",
+    en: "Attention, all students and teachers are requested to proceed to the ceremony field immediately. The flag ceremony will begin shortly."
+  },
+  selasa_kamis: {
+    id: "Selamat pagi, seluruh siswa dimohon memasuki kelas masing-masing untuk memulai kegiatan literasi pagi.",
+    en: "Good morning, all students are requested to enter their classrooms to begin the morning literacy session."
+  },
+  jumat: {
+    id: "Selamat pagi, seluruh siswa dan bapak ibu guru dimohon menuju tempat istighosah untuk mengikuti kegiatan istighosah pagi.",
+    en: "Good morning, all students and teachers are requested to proceed to the designated area for the morning Istighosah session."
+  }
+};
 
-function checkIndonesiaRaya() {
+// Mainkan 1 kalimat TTS, resolve setelah selesai (atau langsung kalau error/nggak didukung)
+// biar bisa disusun berurutan (ID dulu, baru EN) tanpa numpuk/tabrakan.
+function speak(text, lang) {
+  return new Promise((resolve) => {
+    if (!("speechSynthesis" in window)) {
+      resolve();
+      return;
+    }
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = lang;
+    utter.onend = resolve;
+    utter.onerror = resolve; // jangan sampai 1 error bikin urutan macet total
+    window.speechSynthesis.speak(utter);
+  });
+}
+
+async function playMorningAnnouncement(dayGroup) {
+  const ann = ANNOUNCEMENTS[dayGroup];
+  if (!ann) return;
+
+  if (!("speechSynthesis" in window)) {
+    if (statusEl) {
+      statusEl.innerText = "Browser ini tidak mendukung Text-to-Speech, pengumuman pagi dilewati.";
+    }
+    playIndonesiaRaya();
+    return;
+  }
+
+  await speak(ann.id, "id-ID");
+  await speak(ann.en, "en-US");
+  playIndonesiaRaya();
+}
+
+// ==========================
+// SESI PEMBUKA HARI (06:45): pengumuman TTS -> lanjut Indonesia Raya
+// Dipicu di JAM MULAI sesi pertama hari itu, bukan hardcode 07:00,
+// karena Senin/Selasa-Kamis/Jumat semua mulai 06:45.
+// ==========================
+let lastMorningTriggerDate = null;
+
+function checkMorningSequence() {
   if (App.schedule.length === 0) return; // libur, nggak ada sesi pertama
 
-  const now = clock.currentTime;
   const nowHHMM = getNowHHMM();
-  const todayKey = now.toDateString();
-
+  const todayKey = clock.currentTime.toDateString();
   const firstSession = App.schedule[0];
 
-  if (
-    nowHHMM === firstSession.start &&
-    lastIndonesiaRayaDate !== todayKey
-  ) {
-    playIndonesiaRaya();
-    lastIndonesiaRayaDate = todayKey;
+  if (nowHHMM === firstSession.start && lastMorningTriggerDate !== todayKey) {
+    const dayGroup = getDayGroup(clock.currentTime);
+    playMorningAnnouncement(dayGroup);
+    lastMorningTriggerDate = todayKey;
   }
 }
 
@@ -295,7 +347,7 @@ function checkIndonesiaRaya() {
 function loop() {
   updateClockUI();
   updateSession();
-  checkIndonesiaRaya();
+  checkMorningSequence();
   renderCurrent();
   renderSchedule();
 }
@@ -318,3 +370,5 @@ document.addEventListener("DOMContentLoaded", start);
 // ==========================
 window.playBellMasuk = playBellMasuk;
 window.playIndonesiaRaya = playIndonesiaRaya;
+window.testAnnouncement = (dayGroup) =>
+  playMorningAnnouncement(dayGroup || getDayGroup(clock.currentTime));
