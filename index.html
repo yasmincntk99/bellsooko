@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <title>Smart Bell System</title>
+
+  <!-- FONT -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+
+  <!-- STYLES -->
+  <link rel="stylesheet" href="./styles/global.css" />
+</head>
+<body>
+
+  <!-- APP WRAPPER -->
+  <div class="app-shell">
+
+    <!-- HEADER -->
+    <header class="header glass">
+      <div class="header-left">
+        <img
+          src="./assets/logo/logo.png"
+          alt="Logo Smart Bell"
+          class="logo"
+        />
+        <div class="header-title">
+  <h1>SMART BELL SYSTEM</h1>
+  <p>SMAN 1 SOOKO</p>
+</div>
+      </div>
+
+      <div class="header-right">
+        <div id="clock" class="glass-pill">00:00:00</div>
+        <div id="mode-indicator" class="glass-pill mode-normal">
+          MODE: NORMAL
+        </div>
+      </div>
+    </header>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+      <!-- CURRENT SESSION -->
+      <section class="session-section">
+        <div id="currentSession" class="current-session glass">
+          Belum ada sesi
+        </div>
+      </section>
+
+      <!-- SCHEDULE -->
+      <section class="schedule-section">
+        <div
+          id="scheduleContainer"
+          class="grid-container"
+          aria-label="Jadwal Bel"
+        ></div>
+      </section>
+
+      <!-- STATUS -->
+      <section class="status-section">
+        <div id="status" class="status glass"></div>
+      </section>
+
+    </main>
+
+    <!-- FLOATING ADMIN BUTTON -->
+    <button
+      id="gearBtn"
+      class="fab"
+      aria-label="Buka Panel Admin"
+      title="Admin Panel"
+    >
+      ⚙
+    </button>
+<button onclick="playBellMasuk()">Test Bell</button>
+<button onclick="playIndonesiaRaya()">Test Indo Raya</button>
+    <!-- ADMIN PANEL -->
+    <aside
+      id="adminPanel"
+      class="admin-panel glass"
+      aria-label="Admin Panel"
+    >
+      <div class="admin-header">
+        <h3>Admin Panel</h3>
+      </div>
+
+      <div class="admin-body">
+        <label for="modeSelect">Mode</label>
+        <select id="modeSelect">
+          <option value="normal">Normal</option>
+          <option value="exam">Ujian</option>
+          <option value="hybrid">Hybrid</option>
+          <option value="custom">Custom</option>
+        </select>
+
+        <button id="applyMode">Apply Mode</button>
+        <button id="toggleBell">Toggle Bell</button>
+      </div>
+    </aside>
+
+  </div>
+
+  <!-- SCRIPTS -->
+  <script type="module" src="scripts/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,438 @@
+:root {
+  --glass-bg: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.16);
+  --glass-highlight: rgba(255, 255, 255, 0.14);
+
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255,255,255,0.72);
+
+  --shadow-soft: 0 10px 35px rgba(0,0,0,0.18);
+
+  --blur-strong: blur(24px);
+  --blur-soft: blur(16px);
+
+  --radius-xl: 28px;
+  --radius-lg: 22px;
+  --radius-pill: 999px;
+}
+
+/* ================= RESET ================= */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", sans-serif;
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(9, 26, 58, 0.05),
+      rgba(110, 12, 24, 0.05)
+    ),
+    url("../assets/images/background.jpg") no-repeat center center fixed;
+
+  background-size: cover;
+}
+
+/* overlay */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(6, 18, 45, 0.35),
+      rgba(85, 10, 25, 0.25)
+    );
+
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+
+  z-index: -1;
+}
+
+/* ================= APP WRAPPER ================= */
+.app-shell {
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.main-content {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ================= HEADER ================= */
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 18px 22px;
+  margin-bottom: 20px;
+
+  border-radius: var(--radius-xl);
+
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur-strong);
+  -webkit-backdrop-filter: var(--blur-strong);
+
+  border: 1px solid var(--glass-border);
+
+  box-shadow:
+    var(--shadow-soft),
+    inset 0 1px 0 var(--glass-highlight);
+
+  position: relative;
+  overflow: hidden;
+}
+
+.header::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.18),
+    rgba(255,255,255,0.02)
+  );
+
+  pointer-events: none;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* ================= LOGO ================= */
+.logo {
+  width: 54px;
+  height: 54px;
+  object-fit: contain;
+  border-radius: 14px;
+
+  background: rgba(255,255,255,0.08);
+  padding: 6px;
+
+  backdrop-filter: blur(10px);
+
+  box-shadow:
+    0 4px 12px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+/* ================= TITLE ================= */
+.header-title h1 {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  line-height: 1.1;
+}
+
+.header-title p {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-secondary);
+  font-weight: 400;
+  letter-spacing: 0.6px;
+}
+
+/* ================= GLASS PILL ================= */
+.glass-pill {
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+
+  background: rgba(255,255,255,0.12);
+
+  backdrop-filter: var(--blur-soft);
+  -webkit-backdrop-filter: var(--blur-soft);
+
+  border: 1px solid rgba(255,255,255,0.12);
+
+  box-shadow:
+    0 4px 14px rgba(0,0,0,0.1),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+
+  font-weight: 600;
+  font-size: 14px;
+}
+
+#clock {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 1px;
+}
+
+/* ================= MODE ================= */
+.mode-normal {
+  background: rgba(52, 152, 219, 0.22);
+}
+
+.mode-exam {
+  background: rgba(231, 76, 60, 0.22);
+}
+
+.mode-hybrid {
+  background: rgba(155, 89, 182, 0.22);
+}
+
+.mode-custom {
+  background: rgba(46, 204, 113, 0.22);
+}
+
+/* ================= GLASS BLOCK ================= */
+.current-session,
+.status {
+  background: var(--glass-bg);
+  backdrop-filter: var(--blur-strong);
+  border: 1px solid var(--glass-border);
+
+  border-radius: var(--radius-lg);
+
+  box-shadow:
+    var(--shadow-soft),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+
+  padding: 18px;
+}
+
+/* ================= GRID ================= */
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 18px;
+  padding: 10px;
+}
+
+/* ================= CARD ================= */
+.card {
+  position: relative;
+  overflow: hidden;
+
+  padding: 20px;
+  border-radius: 22px;
+
+  background: rgba(255,255,255,0.08);
+
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+
+  border: 1px solid rgba(255,255,255,0.10);
+
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.12),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+
+  transition: all 0.25s ease;
+}
+
+.card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.12),
+    rgba(255,255,255,0.02)
+  );
+
+  pointer-events: none;
+}
+
+.card:hover {
+  transform: translateY(-4px) scale(1.015);
+}
+
+/* ================= FLOAT BUTTON ================= */
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+
+  width: 60px;
+  height: 60px;
+
+  border: none;
+  border-radius: 50%;
+
+  font-size: 22px;
+  color: white;
+  cursor: pointer;
+
+  background: rgba(255,255,255,0.12);
+  backdrop-filter: blur(18px);
+
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+
+  transition: all 0.25s ease;
+  z-index: 9998;
+}
+
+.fab:hover {
+  transform: scale(1.06);
+}
+
+/* ================= ADMIN PANEL ================= */
+.admin-panel {
+  position: fixed;
+  bottom: 95px;
+  right: 24px;
+  width: min(360px, 92vw);
+
+  padding: 20px;
+  border-radius: 26px;
+
+  background: rgba(255,255,255,0.10);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+
+  border: 1px solid rgba(255,255,255,0.14);
+
+  box-shadow:
+    0 12px 35px rgba(0,0,0,0.18),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+
+  z-index: 9999;
+
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+
+  transform: translateY(16px) scale(0.96);
+  transition: all 0.28s ease;
+
+  overflow: hidden;
+}
+
+.admin-panel.show {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+
+  transform: translateY(0) scale(1);
+}
+
+.admin-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+
+  background: linear-gradient(
+    135deg,
+    rgba(255,255,255,0.14),
+    rgba(255,255,255,0.02)
+  );
+
+  pointer-events: none;
+  z-index: 0;
+}
+
+.admin-panel > * {
+  position: relative;
+  z-index: 2;
+}
+
+.admin-panel h3 {
+  margin-bottom: 14px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.admin-panel label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.admin-panel select,
+.admin-panel input,
+.admin-panel button {
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px 14px;
+
+  border: none;
+  border-radius: 16px;
+
+  background: rgba(255,255,255,0.12);
+  color: white;
+
+  backdrop-filter: blur(14px);
+
+  font-size: 14px;
+}
+
+.admin-panel button {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.admin-panel button:hover {
+  background: rgba(255,255,255,0.18);
+}
+
+/* ================= RESPONSIVE ================= */
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 14px;
+    text-align: center;
+  }
+
+  .header-right {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .logo {
+    width: 48px;
+    height: 48px;
+  }
+
+  .header-title h1 {
+    font-size: 18px;
+  }
+
+  .grid-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .grid-container {
+    grid-template-columns: 1fr;
+  }
+
+  .header-title h1 {
+    font-size: 16px;
+  }
+
+  .glass-pill {
+    font-size: 12px;
+  }
+}
