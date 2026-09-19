@@ -40,6 +40,8 @@ const indonesiaRaya = new Audio("/assets/sounds/indoraya.mp3");
 // Sampai filenya diupload, .play() bakal gagal diam-diam (di-catch, nggak
 // bikin error), tapi chime istirahat-nya nggak akan kedengeran.
 const bellIstirahat = new Audio("/assets/sounds/bellistirahat.mp3");
+// ⚠️ FILE BELUM ADA: belljp.mp3 belum di-upload ke assets/sounds/.
+const bellJp = new Audio("/assets/sounds/belljp.mp3");
 // ⚠️ FILE BELUM ADA JUGA: musik12.mp3 (musik jam 12.00 Senin-Kamis / 12.45 Jumat).
 const musik12 = new Audio("/assets/sounds/musik12.mp3");
 
@@ -66,7 +68,7 @@ function unlockAudio(audio) {
 }
 
 document.body.addEventListener("click", () => {
-  [bellMasuk, indonesiaRaya, bellIstirahat, musik12].forEach(unlockAudio);
+  [bellMasuk, indonesiaRaya, bellIstirahat, bellJp, musik12].forEach(unlockAudio);
 }, { once: true });
 
 // ==========================
@@ -311,6 +313,13 @@ function playBellIstirahat() {
   bellIstirahat.play().catch(() => {});
 }
 
+function playBellJp() {
+  if (!App.isBellEnabled) return;
+
+  bellJp.currentTime = 0;
+  bellJp.play().catch(() => {});
+}
+
 function playMusik12() {
   if (!App.isBellEnabled) return;
 
@@ -319,12 +328,15 @@ function playMusik12() {
 }
 
 // Pilih chime yang tepat berdasarkan JENIS sesi yang mau dimasuki:
-// - "istirahat" -> bellistirahat.mp3 (bel mau istirahat)
-// - lainnya (jp / special seperti Upacara, Literasi, Istighosah, Sholat
-//   Jumat) -> bellmasuk.mp3 (bel masuk), termasuk sesi pertama tiap hari.
+// - "istirahat"           -> bellistirahat.mp3 (mau istirahat)
+// - "jp"                  -> belljp.mp3 (pergantian ke jam pelajaran)
+// - lainnya ("special": Upacara, Literasi, Istighosah, Sholat Jumat,
+//   termasuk sesi pertama tiap hari) -> bellmasuk.mp3
 function playChimeFor(session) {
   if (session.type === "istirahat") {
     playBellIstirahat();
+  } else if (session.type === "jp") {
+    playBellJp();
   } else {
     playBellMasuk();
   }
@@ -598,6 +610,7 @@ document.addEventListener("DOMContentLoaded", start);
 // ==========================
 window.playBellMasuk = playBellMasuk;
 window.playBellIstirahat = playBellIstirahat;
+window.playBellJp = playBellJp;
 window.playIndonesiaRaya = playIndonesiaRaya;
 window.playMusik12 = playMusik12;
 window.testAnnouncement = (dayGroup) => {
