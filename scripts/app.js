@@ -43,12 +43,23 @@ const bellIstirahat = new Audio("/assets/sounds/bellistirahat.mp3");
 // ⚠️ FILE BELUM ADA JUGA: musik12.mp3 (musik jam 12.00 Senin-Kamis / 12.45 Jumat).
 const musik12 = new Audio("/assets/sounds/musik12.mp3");
 
-// unlock autoplay (WAJIB)
+// unlock autoplay (WAJIB) - trigger play() lalu LANGSUNG pause() + reset.
+// Ini cuma buat "mengizinkan" browser mutar audio programatically nanti
+// tanpa perlu klik lagi (syarat kebijakan autoplay browser), BUKAN buat
+// beneran mutar suaranya. Sebelumnya nggak ada pause() di sini, jadi pas
+// jumlah file audio nambah jadi 4, semuanya kedengeran numpuk barengan di
+// klik pertama - itu penyebab bug "nyampur semua chime" yang dilaporkan.
+function unlockAudio(audio) {
+  audio.play()
+    .then(() => {
+      audio.pause();
+      audio.currentTime = 0;
+    })
+    .catch(() => {});
+}
+
 document.body.addEventListener("click", () => {
-  bellMasuk.play().catch(()=>{});
-  indonesiaRaya.play().catch(()=>{});
-  bellIstirahat.play().catch(()=>{});
-  musik12.play().catch(()=>{});
+  [bellMasuk, indonesiaRaya, bellIstirahat, musik12].forEach(unlockAudio);
 }, { once: true });
 
 // ==========================
