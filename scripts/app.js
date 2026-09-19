@@ -36,16 +36,19 @@ const statusEl = document.getElementById("status");
 // ==========================
 const bellMasuk = new Audio("/assets/sounds/bellmasuk.mp3");
 const indonesiaRaya = new Audio("/assets/sounds/indoraya.mp3");
-// ⚠️ FILE BELUM ADA: chime.mp3 belum di-upload ke assets/sounds/. Sampai
-// filenya diupload, .play() di bawah bakal gagal diam-diam (di-catch),
-// jadi nggak akan error, tapi chime-nya juga nggak akan kedengeran.
-const chime = new Audio("/assets/sounds/chime.mp3");
+// ⚠️ FILE BELUM ADA: bellistirahat.mp3 belum di-upload ke assets/sounds/.
+// Sampai filenya diupload, .play() bakal gagal diam-diam (di-catch, nggak
+// bikin error), tapi chime istirahat-nya nggak akan kedengeran.
+const bellIstirahat = new Audio("/assets/sounds/bellistirahat.mp3");
+// ⚠️ FILE BELUM ADA JUGA: musik12.mp3 (musik jam 12.00 Senin-Kamis / 12.45 Jumat).
+const musik12 = new Audio("/assets/sounds/musik12.mp3");
 
 // unlock autoplay (WAJIB)
 document.body.addEventListener("click", () => {
   bellMasuk.play().catch(()=>{});
   indonesiaRaya.play().catch(()=>{});
-  chime.play().catch(()=>{});
+  bellIstirahat.play().catch(()=>{});
+  musik12.play().catch(()=>{});
 }, { once: true });
 
 // ==========================
@@ -230,7 +233,7 @@ function updateSession() {
     const key = session.start + session.end;
 
     if (App.lastBellKey !== key) {
-      playBellMasuk();
+      playChimeFor(session); // bel MASUK/ISTIRAHAT persis di detik pergantian, beda dari chime T-1-menit di atas
       App.lastBellKey = key;
     }
   }
@@ -283,11 +286,30 @@ function playIndonesiaRaya() {
   indonesiaRaya.play().catch(() => {});
 }
 
-function playChime() {
+function playBellIstirahat() {
   if (!App.isBellEnabled) return;
 
-  chime.currentTime = 0;
-  chime.play().catch(() => {});
+  bellIstirahat.currentTime = 0;
+  bellIstirahat.play().catch(() => {});
+}
+
+function playMusik12() {
+  if (!App.isBellEnabled) return;
+
+  musik12.currentTime = 0;
+  musik12.play().catch(() => {});
+}
+
+// Pilih chime yang tepat berdasarkan JENIS sesi yang mau dimasuki:
+// - "istirahat" -> bellistirahat.mp3 (bel mau istirahat)
+// - lainnya (jp / special seperti Upacara, Literasi, Istighosah, Sholat
+//   Jumat) -> bellmasuk.mp3 (bel masuk), termasuk sesi pertama tiap hari.
+function playChimeFor(session) {
+  if (session.type === "istirahat") {
+    playBellIstirahat();
+  } else {
+    playBellMasuk();
+  }
 }
 
 // ==========================
@@ -380,29 +402,45 @@ async function speak(text, lang) {
   });
 }
 
-// Bel di momen ini sudah otomatis bunyi lewat updateSession() (mekanisme umum
-// tiap pergantian sesi). Di sini kita cuma nunggu 5 detik lalu nyusul
-// pengumuman multi-bahasa berurutan (sesuai urutan array di ANNOUNCEMENTS),
-// baru Indonesia Raya, ala PA system bandara/stasiun.
-async function playMorningAnnouncement(dayGroup) {
-  const segments = ANNOUNCEMENTS[dayGroup];
-  if (!segments || segments.length === 0) return;
+// Bel di momen ini dipilih otomatis via playChimeFor() berdasarkan tipe sesi
+// (masuk vs istirahat). Sesi PERTAMA hari itu (isFirstSessionOfDay = true)
+// pakai flow "pembukaan hari": jeda 5 detik lalu pengumuman lengkap 3 bahasa
+// dari ANNOUNCEMENTS, ditutup Indonesia Raya. Sesi lainnya pakai flow
+// "transisi rutin": jeda 1.5 detik lalu template singkat 3 bahasa.
+async function playSessionAnnouncement(session, dayGroup, isFirstSessionOfDay) {
+  playChimeFor(session);
 
-  await sleep(5000);
+  if (isFirstSessionOfDay) {
+    await sleep(5000);
 
-  if (!("speechSynthesis" in window)) {
-    if (statusEl) {
-      statusEl.innerText = "Browser ini tidak mendukung Text-to-Speech, pengumuman pagi dilewati.";
+    const segments = ANNOUNCEMENTS[dayGroup];
+    if (!segments || segments.length === 0) return;
+
+    if (!("speechSynthesis" in window)) {
+      if (statusEl) {
+        statusEl.innerText = "Browser ini tidak mendukung Text-to-Speech, pengumuman pagi dilewati.";
+      }
+      playIndonesiaRaya();
+      return;
     }
+
+    for (const segment of segments) {
+      await speak(segment.text, segment.lang);
+    }
+
     playIndonesiaRaya();
     return;
   }
 
-  for (const segment of segments) {
-    await speak(segment.text, segment.lang);
-  }
+  await sleep(1500);
 
-  playIndonesiaRaya();
+  if (!("speechSynthesis" in window)) return;
+
+  const langs = getLangsForDay(dayGroup);
+  for (const lang of langs) {
+    const template = TRANSITION_TEMPLATES[lang] || TRANSITION_TEMPLATES["id-ID"];
+    await speak(template(session.name), lang);
+  }
 }
 
 // ==========================
@@ -440,19 +478,8 @@ function getLangsForDay(dayGroup) {
 // Chime -> jeda pendek -> announcement 3 bahasa. Jeda di sini sengaja lebih
 // pendek (1.5 detik) daripada jeda 5 detik di pembukaan pagi, karena ini
 // pengumuman rutin & singkat, bukan sesi pembukaan hari.
-async function playTransitionAnnouncement(nextSession, dayGroup) {
-  playChime();
-  await sleep(1500);
-
-  const langs = getLangsForDay(dayGroup);
-  for (const lang of langs) {
-    const template = TRANSITION_TEMPLATES[lang] || TRANSITION_TEMPLATES["id-ID"];
-    await speak(template(nextSession.name), lang);
-  }
-}
-
 async function playDismissalAnnouncement(dayGroup) {
-  playChime();
+  playBellMasuk(); // dismissal pakai bel masuk juga (bukan bel istirahat)
   await sleep(1500);
 
   const langs = getLangsForDay(dayGroup);
@@ -462,11 +489,15 @@ async function playDismissalAnnouncement(dayGroup) {
   }
 }
 
-// Dicek tiap detik: buat SEMUA entri jadwal setelah entri pertama (entri
-// pertama udah ditangani checkMorningSequence), kalau sekarang persis
-// H-1 menit dari jam mulainya, bunyikan chime + announcement 3 bahasa.
-// Ini generic - otomatis jalan buat JP, istirahat, MAUPUN "Sholat Jumat",
-// tanpa perlu ditulis satu-satu.
+// Dicek tiap detik untuk SEMUA entri jadwal (termasuk entri pertama hari
+// itu), kalau sekarang persis H-1 menit dari jam mulainya, jalankan
+// playSessionAnnouncement (chime yang sesuai + isi pengumumannya).
+// Generic - otomatis jalan buat JP, istirahat, Upacara/Literasi/Istighosah,
+// MAUPUN "Sholat Jumat", tanpa perlu ditulis satu-satu.
+//
+// Musik jam 12:00 (Senin-Kamis) / 12:45 (Jumat) dicek terpisah karena itu
+// bukan bagian dari transisi sesi, cuma pemutaran musik di jam tetap.
+//
 // Pulang dipicu PERSIS di jam berakhirnya entri terakhir hari itu.
 function checkTransitionAnnouncements() {
   if (App.schedule.length === 0) return;
@@ -475,14 +506,14 @@ function checkTransitionAnnouncements() {
   const todayKey = clock.currentTime.toDateString();
   const dayGroup = getDayGroup(clock.currentTime);
 
-  for (let i = 1; i < App.schedule.length; i++) {
+  for (let i = 0; i < App.schedule.length; i++) {
     const session = App.schedule[i];
     const triggerTime = subtractMinutes(session.start, 1);
     const key = `${todayKey}-transisi-${i}`;
 
     if (nowHHMM === triggerTime && !App.triggeredKeys.has(key)) {
       App.triggeredKeys.add(key);
-      playTransitionAnnouncement(session, dayGroup);
+      playSessionAnnouncement(session, dayGroup, i === 0);
     }
   }
 
@@ -496,23 +527,26 @@ function checkTransitionAnnouncements() {
 }
 
 // ==========================
-// SESI PEMBUKA HARI (06:45): pengumuman TTS -> lanjut Indonesia Raya
-// Dipicu di JAM MULAI sesi pertama hari itu, bukan hardcode 07:00,
-// karena Senin/Selasa-Kamis/Jumat semua mulai 06:45.
+// MUSIK JAM 12 (Senin-Kamis 12:00, Jumat 12:45)
+// ⚠️ CATATAN: parenthetical "15 menit setelah bel istirahat ke-2" yang
+// disebutkan awalnya SECARA MATEMATIS nggak persis pas 12:00 untuk Senin
+// (istirahat 2 mulai 11:50) vs Selasa-Kamis (istirahat 2 mulai 11:35) -
+// selisihnya beda 15 menit antara 2 kelompok hari itu. Di sini aku pakai
+// ANGKA LITERAL yang diminta (12:00 & 12:45), bukan hasil turunan rumus,
+// jadi kalau ternyata yang dimaksud beda per hari, tinggal kabari.
 // ==========================
-let lastMorningTriggerDate = null;
-
-function checkMorningSequence() {
-  if (App.schedule.length === 0) return; // libur, nggak ada sesi pertama
+function checkMusik12() {
+  const dayGroup = getDayGroup(clock.currentTime);
+  if (!dayGroup) return; // libur
 
   const nowHHMM = getNowHHMM();
   const todayKey = clock.currentTime.toDateString();
-  const firstSession = App.schedule[0];
+  const key = `${todayKey}-musik12`;
+  const triggerTime = dayGroup === "jumat" ? "12:45" : "12:00";
 
-  if (nowHHMM === firstSession.start && lastMorningTriggerDate !== todayKey) {
-    const dayGroup = getDayGroup(clock.currentTime);
-    playMorningAnnouncement(dayGroup);
-    lastMorningTriggerDate = todayKey;
+  if (nowHHMM === triggerTime && !App.triggeredKeys.has(key)) {
+    App.triggeredKeys.add(key);
+    playMusik12();
   }
 }
 
@@ -522,8 +556,8 @@ function checkMorningSequence() {
 function loop() {
   updateClockUI();
   updateSession();
-  checkMorningSequence();
   checkTransitionAnnouncements();
+  checkMusik12();
   renderCurrent();
   renderSchedule();
 }
@@ -545,9 +579,18 @@ document.addEventListener("DOMContentLoaded", start);
 // GLOBAL (UNTUK TEST BUTTON)
 // ==========================
 window.playBellMasuk = playBellMasuk;
+window.playBellIstirahat = playBellIstirahat;
 window.playIndonesiaRaya = playIndonesiaRaya;
-window.testAnnouncement = (dayGroup) =>
-  playMorningAnnouncement(dayGroup || getDayGroup(clock.currentTime));
+window.playMusik12 = playMusik12;
+window.testAnnouncement = (dayGroup) => {
+  const group = dayGroup || getDayGroup(clock.currentTime);
+  const session = App.schedule[0];
+  if (!session) {
+    console.warn("Hari ini libur, nggak ada sesi pertama buat ditest.");
+    return;
+  }
+  playSessionAnnouncement(session, group, true);
+};
 window.testTransition = (index = 1) => {
   const dayGroup = getDayGroup(clock.currentTime);
   const session = App.schedule[index];
@@ -555,6 +598,6 @@ window.testTransition = (index = 1) => {
     console.warn(`Index ${index} nggak ada di jadwal hari ini (panjang jadwal: ${App.schedule.length}).`);
     return;
   }
-  playTransitionAnnouncement(session, dayGroup);
+  playSessionAnnouncement(session, dayGroup, false);
 };
 window.testDismissal = () => playDismissalAnnouncement(getDayGroup(clock.currentTime));
