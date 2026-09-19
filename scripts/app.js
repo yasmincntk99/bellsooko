@@ -43,19 +43,26 @@ const bellIstirahat = new Audio("/assets/sounds/bellistirahat.mp3");
 // ⚠️ FILE BELUM ADA JUGA: musik12.mp3 (musik jam 12.00 Senin-Kamis / 12.45 Jumat).
 const musik12 = new Audio("/assets/sounds/musik12.mp3");
 
-// unlock autoplay (WAJIB) - trigger play() lalu LANGSUNG pause() + reset.
-// Ini cuma buat "mengizinkan" browser mutar audio programatically nanti
-// tanpa perlu klik lagi (syarat kebijakan autoplay browser), BUKAN buat
-// beneran mutar suaranya. Sebelumnya nggak ada pause() di sini, jadi pas
-// jumlah file audio nambah jadi 4, semuanya kedengeran numpuk barengan di
-// klik pertama - itu penyebab bug "nyampur semua chime" yang dilaporkan.
+// unlock autoplay (WAJIB) - pakai SALINAN terpisah (cloneNode) dari tiap
+// audio, BUKAN objek audio asli yang dipakai buat pemutaran beneran.
+//
+// Kenapa: kalau pakai objek yang sama, dan klik pertama di halaman
+// KEBETULAN adalah tombol test (misal "Test Musik Jam 12"), maka dalam 1
+// event klik yang sama: tombolnya manggil playMusik12() (mulai muter),
+// TAPI event itu juga ngebubble ke document.body dan mentrigger unlock,
+// yang langsung nge-pause() balik audio yang sama itu - hasilnya diem
+// total. Ini sempet kejadian & sudah diverifikasi bukan soal ukuran file.
+// Pakai cloneNode() memutus keterkaitan itu; izin autoplay browser sendiri
+// berlaku per-halaman (bukan per elemen audio), jadi cukup salinan yang
+// di-unlock, objek aslinya ikut kebuka juga buat dipakai kapan saja.
 function unlockAudio(audio) {
-  audio.play()
-    .then(() => {
-      audio.pause();
-      audio.currentTime = 0;
-    })
-    .catch(() => {});
+  try {
+    const clone = audio.cloneNode();
+    clone.volume = 0; // jaga-jaga kalau pause() nggak keburu secepat play()-nya
+    clone.play().then(() => clone.pause()).catch(() => {});
+  } catch (e) {
+    // no-op, browser lama/aneh - nggak fatal, cuma unlock-nya nggak jalan
+  }
 }
 
 document.body.addEventListener("click", () => {
