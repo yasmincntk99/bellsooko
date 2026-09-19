@@ -11,6 +11,7 @@ const App = {
   scheduleDateKey: null, // buat deteksi pergantian hari, biar jadwal ke-refresh otomatis
   currentSession: null,
   lastBellKey: null,
+  triggeredKeys: new Set(), // penanda one-shot per-hari buat announcement transisi & pulang
   isBellEnabled: true,
   mode: "normal"
 };
@@ -35,11 +36,16 @@ const statusEl = document.getElementById("status");
 // ==========================
 const bellMasuk = new Audio("/assets/sounds/bellmasuk.mp3");
 const indonesiaRaya = new Audio("/assets/sounds/indoraya.mp3");
+// ⚠️ FILE BELUM ADA: chime.mp3 belum di-upload ke assets/sounds/. Sampai
+// filenya diupload, .play() di bawah bakal gagal diam-diam (di-catch),
+// jadi nggak akan error, tapi chime-nya juga nggak akan kedengeran.
+const chime = new Audio("/assets/sounds/chime.mp3");
 
 // unlock autoplay (WAJIB)
 document.body.addEventListener("click", () => {
   bellMasuk.play().catch(()=>{});
   indonesiaRaya.play().catch(()=>{});
+  chime.play().catch(()=>{});
 }, { once: true });
 
 // ==========================
@@ -97,6 +103,15 @@ function formatTime(h, m) {
 function getNowHHMM() {
   const now = clock.currentTime;
   return formatTime(now.getHours(), now.getMinutes());
+}
+
+// Buat hitung waktu trigger "1 menit sebelum". Handle wrap tengah malam
+// (walau nggak kepakai buat jam sekolah, tetep aman kalau dipanggil jam 00:xx).
+function subtractMinutes(hhmm, minutesToSubtract) {
+  const [h, m] = hhmm.split(":").map(Number);
+  let total = h * 60 + m - minutesToSubtract;
+  if (total < 0) total += 24 * 60;
+  return formatTime(Math.floor(total / 60), total % 60);
 }
 
 // ==========================
@@ -204,6 +219,7 @@ function updateSession() {
     App.schedule = generateSchedule(clock.currentTime);
     App.scheduleDateKey = todayKey;
     App.lastBellKey = null;
+    App.triggeredKeys = new Set();
   }
 
   const now = getNowHHMM();
@@ -265,6 +281,13 @@ function playBellMasuk() {
 function playIndonesiaRaya() {
   indonesiaRaya.currentTime = 0;
   indonesiaRaya.play().catch(() => {});
+}
+
+function playChime() {
+  if (!App.isBellEnabled) return;
+
+  chime.currentTime = 0;
+  chime.play().catch(() => {});
 }
 
 // ==========================
@@ -383,6 +406,96 @@ async function playMorningAnnouncement(dayGroup) {
 }
 
 // ==========================
+// TRANSITION & DISMISSAL ANNOUNCEMENT (TTS, 3 bahasa - sama kayak
+// pengumuman pagi harinya, bahasa ke-3 ngikut dayGroup)
+// ⚠️ TODO: teks JA/KO/AR masih DRAFT, sama seperti ANNOUNCEMENTS di atas,
+// belum dicek penutur asli.
+// Nama sesi berikutnya (mis. "JP 5", "Istirahat 1") sengaja TIDAK
+// diterjemahkan - dipakai apa adanya di semua bahasa, karena itu istilah
+// internal sekolah, bukan kosakata umum yang punya padanan baku.
+// ==========================
+const TRANSITION_TEMPLATES = {
+  "id-ID": (name) => `Perhatian, satu menit lagi memasuki ${name}.`,
+  "en-US": (name) => `Attention, one minute remaining until ${name}.`,
+  "ja-JP": (name) => `ご案内いたします。まもなく1分後に${name}が始まります。`,
+  "ko-KR": (name) => `안내 말씀 드립니다. 1분 후에 ${name}이 시작됩니다.`,
+  "ar-SA": (name) => `تنبيه، سيبدأ ${name} بعد دقيقة واحدة.`
+};
+
+const DISMISSAL_TEXTS = {
+  "id-ID": "Kegiatan belajar mengajar hari ini telah selesai. Seluruh siswa dipersilakan meninggalkan sekolah dengan tertib. Sampai jumpa besok.",
+  "en-US": "Today's school activities have ended. All students are requested to leave the school in an orderly manner. See you tomorrow.",
+  "ja-JP": "本日の授業はすべて終了しました。生徒の皆さんは、静かに、整然と学校を離れてください。また明日お会いしましょう。",
+  "ko-KR": "오늘 수업이 모두 종료되었습니다. 학생 여러분은 질서 있게 하교해 주시기 바랍니다. 내일 또 만나요.",
+  "ar-SA": "انتهت الأنشطة الدراسية لهذا اليوم. يُرجى من جميع الطلاب مغادرة المدرسة بنظام. نراكم غدًا."
+};
+
+// Ambil urutan bahasa yang dipakai hari itu, sama persis kayak ANNOUNCEMENTS
+// pembuka pagi, biar konsisten (Senin=ID/EN/JA, Selasa-Kamis=ID/EN/KO, dst).
+function getLangsForDay(dayGroup) {
+  const segments = ANNOUNCEMENTS[dayGroup];
+  return segments ? segments.map(s => s.lang) : ["id-ID", "en-US"];
+}
+
+// Chime -> jeda pendek -> announcement 3 bahasa. Jeda di sini sengaja lebih
+// pendek (1.5 detik) daripada jeda 5 detik di pembukaan pagi, karena ini
+// pengumuman rutin & singkat, bukan sesi pembukaan hari.
+async function playTransitionAnnouncement(nextSession, dayGroup) {
+  playChime();
+  await sleep(1500);
+
+  const langs = getLangsForDay(dayGroup);
+  for (const lang of langs) {
+    const template = TRANSITION_TEMPLATES[lang] || TRANSITION_TEMPLATES["id-ID"];
+    await speak(template(nextSession.name), lang);
+  }
+}
+
+async function playDismissalAnnouncement(dayGroup) {
+  playChime();
+  await sleep(1500);
+
+  const langs = getLangsForDay(dayGroup);
+  for (const lang of langs) {
+    const text = DISMISSAL_TEXTS[lang] || DISMISSAL_TEXTS["id-ID"];
+    await speak(text, lang);
+  }
+}
+
+// Dicek tiap detik: buat SEMUA entri jadwal setelah entri pertama (entri
+// pertama udah ditangani checkMorningSequence), kalau sekarang persis
+// H-1 menit dari jam mulainya, bunyikan chime + announcement 3 bahasa.
+// Ini generic - otomatis jalan buat JP, istirahat, MAUPUN "Sholat Jumat",
+// tanpa perlu ditulis satu-satu.
+// Pulang dipicu PERSIS di jam berakhirnya entri terakhir hari itu.
+function checkTransitionAnnouncements() {
+  if (App.schedule.length === 0) return;
+
+  const nowHHMM = getNowHHMM();
+  const todayKey = clock.currentTime.toDateString();
+  const dayGroup = getDayGroup(clock.currentTime);
+
+  for (let i = 1; i < App.schedule.length; i++) {
+    const session = App.schedule[i];
+    const triggerTime = subtractMinutes(session.start, 1);
+    const key = `${todayKey}-transisi-${i}`;
+
+    if (nowHHMM === triggerTime && !App.triggeredKeys.has(key)) {
+      App.triggeredKeys.add(key);
+      playTransitionAnnouncement(session, dayGroup);
+    }
+  }
+
+  const lastSession = App.schedule[App.schedule.length - 1];
+  const dismissalKey = `${todayKey}-pulang`;
+
+  if (nowHHMM === lastSession.end && !App.triggeredKeys.has(dismissalKey)) {
+    App.triggeredKeys.add(dismissalKey);
+    playDismissalAnnouncement(dayGroup);
+  }
+}
+
+// ==========================
 // SESI PEMBUKA HARI (06:45): pengumuman TTS -> lanjut Indonesia Raya
 // Dipicu di JAM MULAI sesi pertama hari itu, bukan hardcode 07:00,
 // karena Senin/Selasa-Kamis/Jumat semua mulai 06:45.
@@ -410,6 +523,7 @@ function loop() {
   updateClockUI();
   updateSession();
   checkMorningSequence();
+  checkTransitionAnnouncements();
   renderCurrent();
   renderSchedule();
 }
@@ -434,3 +548,13 @@ window.playBellMasuk = playBellMasuk;
 window.playIndonesiaRaya = playIndonesiaRaya;
 window.testAnnouncement = (dayGroup) =>
   playMorningAnnouncement(dayGroup || getDayGroup(clock.currentTime));
+window.testTransition = (index = 1) => {
+  const dayGroup = getDayGroup(clock.currentTime);
+  const session = App.schedule[index];
+  if (!session) {
+    console.warn(`Index ${index} nggak ada di jadwal hari ini (panjang jadwal: ${App.schedule.length}).`);
+    return;
+  }
+  playTransitionAnnouncement(session, dayGroup);
+};
+window.testDismissal = () => playDismissalAnnouncement(getDayGroup(clock.currentTime));
