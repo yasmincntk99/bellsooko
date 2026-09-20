@@ -461,3 +461,32 @@ body::before {
   flex: 0 0 auto;
   padding: 2px 8px;
 }
+
+/* Shell admin panel: header status + tab bar */
+.admin-shell-header {
+  font-size: .85em;
+  opacity: .85;
+  margin-bottom: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(255,255,255,.15);
+}
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+.admin-tab-btn {
+  flex: 1;
+  padding: 6px 4px;
+  font-size: .85em;
+  opacity: .6;
+  background: transparent;
+}
+.admin-tab-btn.active {
+  opacity: 1;
+  font-weight: 600;
+  border-bottom: 2px solid currentColor;
+}
+.admin-tab-page {
+  margin-bottom: 10px;
+}
