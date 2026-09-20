@@ -140,9 +140,10 @@ adminPasswordEl?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") handleAdminLogin();
 });
 
-// Mode "exam" / "hybrid" / "custom" belum ada jadwalnya -> jangan pura-pura
+// Mode "exam" / "hybrid" masih belum ada jadwalnya -> jangan pura-pura
 // jalan, kasih tau terus terang ke admin daripada diam-diam nggak ngefek.
-const MODES_BELUM_TERSEDIA = ["exam", "hybrid", "custom"];
+// "custom" sudah aktif (lihat editor jadwal custom di bawah).
+const MODES_BELUM_TERSEDIA = ["exam", "hybrid"];
 
 applyModeBtn?.addEventListener("click", () => {
   const selected = modeSelect.value;
@@ -155,9 +156,28 @@ applyModeBtn?.addEventListener("click", () => {
     return;
   }
 
+  if (selected === "custom" && loadCustomSchedule().length === 0) {
+    if (statusEl) {
+      statusEl.innerText = "Jadwal Custom masih kosong. Isi & simpan dulu di editor Mode Custom di bawah sebelum di-apply.";
+    }
+    return;
+  }
+
   App.mode = selected;
   modeIndicator.textContent = `MODE: ${selected.toUpperCase()}`;
-  if (statusEl) statusEl.innerText = "Mode Normal diterapkan.";
+
+  // Paksa refresh jadwal SEKARANG JUGA, jangan nunggu pergantian hari
+  // otomatis di updateSession() - biar mode baru langsung kepakai.
+  App.schedule = generateSchedule(clock.currentTime);
+  App.scheduleDateKey = clock.currentTime.toDateString();
+  App.lastBellKey = null;
+  App.triggeredKeys = new Set();
+
+  if (statusEl) {
+    statusEl.innerText = selected === "custom"
+      ? "Mode Custom diterapkan (jadwal dari editor)."
+      : "Mode Normal diterapkan.";
+  }
 });
 
 toggleBellBtn?.addEventListener("click", () => {
@@ -167,6 +187,103 @@ toggleBellBtn?.addEventListener("click", () => {
     statusEl.innerText = App.isBellEnabled ? "Bel diaktifkan." : "Bel dimatikan sementara.";
   }
 });
+
+// ==========================
+// EDITOR MODE CUSTOM
+// ==========================
+const customScheduleRowsEl = document.getElementById("customScheduleRows");
+const customAddRowBtn = document.getElementById("customAddRowBtn");
+const customLoadTodayBtn = document.getElementById("customLoadTodayBtn");
+const customSaveBtn = document.getElementById("customSaveBtn");
+const customSaveStatusEl = document.getElementById("customSaveStatus");
+
+// Working array di memori selagi admin ngedit - baru ditulis ke
+// localStorage pas klik Simpan (biar nggak ke-save tiap ketikan).
+let customRows = loadCustomSchedule();
+
+function renderCustomRows() {
+  if (!customScheduleRowsEl) return;
+
+  customScheduleRowsEl.innerHTML = "";
+
+  customRows.forEach((row, index) => {
+    const rowEl = document.createElement("div");
+    rowEl.className = "custom-row";
+    rowEl.innerHTML = `
+      <input type="text" class="custom-name" placeholder="Nama sesi" value="${row.name ?? ""}" />
+      <input type="time" class="custom-start" value="${row.start ?? ""}" />
+      <input type="time" class="custom-end" value="${row.end ?? ""}" />
+      <select class="custom-type">
+        <option value="jp" ${row.type === "jp" ? "selected" : ""}>JP</option>
+        <option value="istirahat" ${row.type === "istirahat" ? "selected" : ""}>Istirahat</option>
+        <option value="special" ${row.type === "special" ? "selected" : ""}>Special</option>
+      </select>
+      <button class="custom-remove" title="Hapus sesi ini">🗑</button>
+    `;
+
+    rowEl.querySelector(".custom-name").addEventListener("input", (e) => {
+      customRows[index].name = e.target.value;
+    });
+    rowEl.querySelector(".custom-start").addEventListener("input", (e) => {
+      customRows[index].start = e.target.value;
+    });
+    rowEl.querySelector(".custom-end").addEventListener("input", (e) => {
+      customRows[index].end = e.target.value;
+    });
+    rowEl.querySelector(".custom-type").addEventListener("change", (e) => {
+      customRows[index].type = e.target.value;
+    });
+    rowEl.querySelector(".custom-remove").addEventListener("click", () => {
+      customRows.splice(index, 1);
+      renderCustomRows();
+    });
+
+    customScheduleRowsEl.appendChild(rowEl);
+  });
+}
+
+customAddRowBtn?.addEventListener("click", () => {
+  customRows.push({ name: "", start: "07:00", end: "07:45", type: "jp" });
+  renderCustomRows();
+});
+
+customLoadTodayBtn?.addEventListener("click", () => {
+  const dayGroup = getDayGroup(clock.currentTime);
+  const template =
+    dayGroup === "senin" ? SCHEDULE_SENIN :
+    dayGroup === "selasa_kamis" ? SCHEDULE_SELASA_KAMIS :
+    dayGroup === "jumat" ? SCHEDULE_JUMAT : null;
+
+  if (!template) {
+    if (customSaveStatusEl) customSaveStatusEl.innerText = "Hari ini libur, nggak ada jadwal Normal buat dijadikan template. Tambah sesi manual pakai '+ Tambah Sesi'.";
+    return;
+  }
+
+  // Deep copy - JANGAN referensi langsung ke SCHEDULE_SENIN dkk, biar
+  // ngedit di sini nggak ikut ngubah data Normal aslinya.
+  customRows = template.map(s => ({ ...s }));
+  renderCustomRows();
+
+  if (customSaveStatusEl) customSaveStatusEl.innerText = `Dimuat dari template hari ini (${dayGroup}). Silakan edit jam, lalu Simpan.`;
+});
+
+customSaveBtn?.addEventListener("click", () => {
+  // Validasi minimal: nama nggak kosong, jam mulai & selesai keisi semua.
+  const invalidRow = customRows.find(r => !r.name || !r.start || !r.end);
+  if (invalidRow) {
+    if (customSaveStatusEl) customSaveStatusEl.innerText = "⚠️ Ada sesi yang nama/jam mulai/jam selesainya masih kosong.";
+    return;
+  }
+
+  const success = saveCustomSchedule(customRows);
+  if (customSaveStatusEl) {
+    customSaveStatusEl.innerText = success
+      ? `✅ Tersimpan (${customRows.length} sesi). Pilih mode "Custom" lalu klik Apply Mode buat mengaktifkan.`
+      : "⚠️ Gagal menyimpan (localStorage penuh/diblokir browser).";
+  }
+});
+
+renderCustomRows(); // tampilkan isi localStorage (kalau ada) begitu halaman dibuka
 
 // ==========================
 // UTIL
@@ -266,7 +383,39 @@ function getDayGroup(date) {
   return null; // Sabtu / Minggu
 }
 
+// ==========================
+// MODE CUSTOM - penyimpanan & generator
+// Disimpan di localStorage (per-browser/device, bukan per-hari) - lihat
+// catatan diskusi sebelumnya soal batasan ini. Struktur sama kayak
+// SCHEDULE_SENIN dkk: array of {name, start, end, type}.
+// ==========================
+const CUSTOM_SCHEDULE_KEY = "bellsooko_custom_schedule";
+
+function loadCustomSchedule() {
+  try {
+    const raw = localStorage.getItem(CUSTOM_SCHEDULE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch (e) {
+    console.warn("Gagal baca custom schedule dari localStorage:", e);
+    return [];
+  }
+}
+
+function saveCustomSchedule(rows) {
+  try {
+    localStorage.setItem(CUSTOM_SCHEDULE_KEY, JSON.stringify(rows));
+    return true;
+  } catch (e) {
+    console.warn("Gagal simpan custom schedule ke localStorage:", e);
+    return false;
+  }
+}
+
 function generateSchedule(date = clock.currentTime) {
+  if (App.mode === "custom") {
+    return loadCustomSchedule(); // nggak peduli hari apa - dipakai apa adanya
+  }
+
   switch (getDayGroup(date)) {
     case "senin":
       return SCHEDULE_SENIN;
