@@ -79,14 +79,7 @@
     >
       ⚙
     </button>
-<button onclick="playBellMasuk()">Test Bell</button>
-<button onclick="playIndonesiaRaya()">Test Indo Raya</button>
-<button onclick="testAnnouncement()">Test Pengumuman Pagi (hari ini)</button>
-<button onclick="testTransition()">Test Transisi (JP/istirahat berikutnya)</button>
-<button onclick="testDismissal()">Test Pulang</button>
-<button onclick="playMusik12()">Test Musik Jam 12</button>
-<button onclick="playBellJp()">Test Bell JP</button>
-<button onclick="playBellPulang()">Test Bell Pulang</button>
+
     <!-- ADMIN PANEL -->
     <aside
       id="adminPanel"
@@ -97,7 +90,20 @@
         <h3>Admin Panel</h3>
       </div>
 
-      <div class="admin-body">
+      <!-- LOGIN GATE: ditampilkan pertama, admin-body baru muncul setelah login benar -->
+      <div class="admin-body" id="adminLogin">
+        <label for="adminUsername">Username</label>
+        <input type="text" id="adminUsername" autocomplete="username" />
+
+        <label for="adminPassword">Password</label>
+        <input type="password" id="adminPassword" autocomplete="current-password" />
+
+        <button id="adminLoginBtn">Login</button>
+        <p id="adminLoginError" style="color:#f87171; display:none;">Username atau password salah.</p>
+      </div>
+
+      <!-- ISI ADMIN PANEL SEBENARNYA: disembunyikan sampai login berhasil -->
+      <div class="admin-body" id="adminControls" style="display:none;">
         <label for="modeSelect">Mode</label>
         <select id="modeSelect">
           <option value="normal">Normal</option>
@@ -108,6 +114,18 @@
 
         <button id="applyMode">Apply Mode</button>
         <button id="toggleBell">Toggle Bell</button>
+
+        <hr />
+        <p style="opacity:.6; font-size:.8em;">Testing (bunyi asli, hati-hati volume):</p>
+        <button onclick="playBellMasuk()">Test Bell Masuk</button>
+        <button onclick="playBellIstirahat()">Test Bell Istirahat</button>
+        <button onclick="playBellJp()">Test Bell JP</button>
+        <button onclick="playBellPulang()">Test Bell Pulang</button>
+        <button onclick="playIndonesiaRaya()">Test Indo Raya</button>
+        <button onclick="playMusik12()">Test Musik Jam 12</button>
+        <button onclick="testAnnouncement()">Test Pengumuman Pagi (hari ini)</button>
+        <button onclick="testTransition()">Test Transisi (JP/istirahat berikutnya)</button>
+        <button onclick="testDismissal()">Test Pulang</button>
       </div>
     </aside>
 
