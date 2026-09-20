@@ -13,7 +13,19 @@ const App = {
   lastBellKey: null,
   triggeredKeys: new Set(), // penanda one-shot per-hari buat announcement transisi & pulang
   isBellEnabled: true,
-  mode: "normal"
+  mode: "normal",
+  isAdminAuthenticated: false // reset tiap reload halaman, sengaja nggak di-persist
+};
+
+// ⚠️ CATATAN KEAMANAN: ini kredensial hardcoded di kode FRONTEND, kelihatan
+// mentah-mentah di source (DevTools browser -> tab Sources -> file ini).
+// Ini cuma nyegah orang iseng klak-klik, BUKAN proteksi beneran terhadap
+// orang yang niat (bisa dibaca langsung dari sini, atau di-bypass dengan
+// set App.isAdminAuthenticated = true manual lewat console). Kalau nanti
+// butuh proteksi sungguhan, itu perlu backend/server, bukan cuma JS di sini.
+const ADMIN_CREDENTIALS = {
+  username: "adminbell",
+  password: "generasibaru"
 };
 
 // ==========================
@@ -30,6 +42,13 @@ const modeSelect = document.getElementById("modeSelect");
 const applyModeBtn = document.getElementById("applyMode");
 const toggleBellBtn = document.getElementById("toggleBell");
 const statusEl = document.getElementById("status");
+
+const adminLoginEl = document.getElementById("adminLogin");
+const adminControlsEl = document.getElementById("adminControls");
+const adminUsernameEl = document.getElementById("adminUsername");
+const adminPasswordEl = document.getElementById("adminPassword");
+const adminLoginBtn = document.getElementById("adminLoginBtn");
+const adminLoginErrorEl = document.getElementById("adminLoginError");
 
 // ==========================
 // AUDIO
@@ -93,6 +112,32 @@ document.addEventListener("click", (e) => {
   ) {
     adminPanel.classList.remove("show");
   }
+});
+
+// Login gate - cek username & password, tampilkan admin-body kalau cocok.
+// Sekali berhasil login, tetap login sampai halaman di-reload (nggak
+// di-persist ke localStorage/sessionStorage, sengaja, biar minimal).
+function handleAdminLogin() {
+  const username = adminUsernameEl.value.trim();
+  const password = adminPasswordEl.value;
+
+  if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+    App.isAdminAuthenticated = true;
+    adminLoginErrorEl.style.display = "none";
+    adminLoginEl.style.display = "none";
+    adminControlsEl.style.display = "";
+    adminPasswordEl.value = ""; // jangan nyimpen password di DOM lebih lama dari perlu
+  } else {
+    adminLoginErrorEl.style.display = "";
+    adminPasswordEl.value = "";
+  }
+}
+
+adminLoginBtn?.addEventListener("click", handleAdminLogin);
+
+// Biar bisa login pakai Enter, bukan cuma klik tombol
+adminPasswordEl?.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") handleAdminLogin();
 });
 
 // Mode "exam" / "hybrid" / "custom" belum ada jadwalnya -> jangan pura-pura
