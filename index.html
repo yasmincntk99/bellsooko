@@ -116,6 +116,19 @@
         <button id="toggleBell">Toggle Bell</button>
 
         <hr />
+        <h4 style="margin-bottom:4px;">Mode Custom - Edit Jadwal</h4>
+        <p style="opacity:.7; font-size:.8em; margin-top:0;">
+          Buat event dadakan. Nggak terikat hari tertentu - dipakai apa
+          adanya sampai mode diganti balik ke Normal. Isi jam mulai & selesai
+          tiap sesi, lalu Simpan.
+        </p>
+        <div id="customScheduleRows"></div>
+        <button id="customAddRowBtn">+ Tambah Sesi</button>
+        <button id="customLoadTodayBtn">Muat dari Jadwal Hari Ini</button>
+        <button id="customSaveBtn">💾 Simpan Jadwal Custom</button>
+        <p id="customSaveStatus" style="font-size:.8em; opacity:.8;"></p>
+
+        <hr />
         <p style="opacity:.6; font-size:.8em;">Testing (bunyi asli, hati-hati volume):</p>
         <button onclick="playBellMasuk()">Test Bell Masuk</button>
         <button onclick="playBellIstirahat()">Test Bell Istirahat</button>
