@@ -436,3 +436,28 @@ body::before {
     font-size: 12px;
   }
 }
+
+/* Editor baris Mode Custom */
+.custom-row {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+.custom-row .custom-name {
+  flex: 1 1 90px;
+  min-width: 70px;
+}
+.custom-row .custom-start,
+.custom-row .custom-end {
+  flex: 0 0 auto;
+  width: 90px;
+}
+.custom-row .custom-type {
+  flex: 0 0 auto;
+}
+.custom-row .custom-remove {
+  flex: 0 0 auto;
+  padding: 2px 8px;
+}
