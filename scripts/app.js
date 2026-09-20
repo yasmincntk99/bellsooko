@@ -213,7 +213,16 @@ const activateCustomBtn = document.getElementById("activateCustomBtn");
 
 function openCustomModal() {
   if (!customModalOverlay) return;
-  renderCustomRows(); // pastikan nampilin data terbaru dari localStorage tiap dibuka
+
+  // Auto-populate pakai template hari ini KALAU masih kosong (belum pernah
+  // di-setup/disimpan sebelumnya) - jadi admin nggak perlu klik "Muat dari
+  // Jadwal Hari Ini" secara manual tiap buka editor baru. Kalau UDAH ada
+  // data tersimpan sebelumnya, itu yang ditampilkan (jangan ketimpa diam-diam).
+  if (customRows.length === 0) {
+    loadTodayTemplateIntoCustomRows();
+  }
+
+  renderCustomRows();
   customModalOverlay.style.display = "flex";
 }
 
@@ -285,7 +294,10 @@ customAddRowBtn?.addEventListener("click", () => {
   renderCustomRows();
 });
 
-customLoadTodayBtn?.addEventListener("click", () => {
+// Ambil template hari ini (Senin/Selasa-Kamis/Jumat) buat dijadiin isi
+// awal customRows. Dipakai baik oleh tombol manual "Muat dari Jadwal Hari
+// Ini" maupun otomatis pas modal dibuka pertama kali (kalau masih kosong).
+function loadTodayTemplateIntoCustomRows() {
   const dayGroup = getDayGroup(clock.currentTime);
   const template =
     dayGroup === "senin" ? SCHEDULE_SENIN :
@@ -294,15 +306,23 @@ customLoadTodayBtn?.addEventListener("click", () => {
 
   if (!template) {
     if (customSaveStatusEl) customSaveStatusEl.innerText = "Hari ini libur, nggak ada jadwal Normal buat dijadikan template. Tambah sesi manual pakai '+ Tambah Sesi'.";
-    return;
+    return false;
   }
 
   // Deep copy - JANGAN referensi langsung ke SCHEDULE_SENIN dkk, biar
   // ngedit di sini nggak ikut ngubah data Normal aslinya.
   customRows = template.map(s => ({ ...s }));
+  return true;
+}
+
+customLoadTodayBtn?.addEventListener("click", () => {
+  const loaded = loadTodayTemplateIntoCustomRows();
   renderCustomRows();
 
-  if (customSaveStatusEl) customSaveStatusEl.innerText = `Dimuat dari template hari ini (${dayGroup}). Silakan edit jam, lalu Simpan.`;
+  if (loaded && customSaveStatusEl) {
+    const dayGroup = getDayGroup(clock.currentTime);
+    customSaveStatusEl.innerText = `Dimuat dari template hari ini (${dayGroup}). Silakan edit jam, lalu Simpan.`;
+  }
 });
 
 customSaveBtn?.addEventListener("click", () => {
