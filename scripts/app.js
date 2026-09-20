@@ -40,7 +40,6 @@ const gearBtn = document.getElementById("gearBtn");
 const adminPanel = document.getElementById("adminPanel");
 const activeModeLabelEl = document.getElementById("activeModeLabel");
 const activateNormalBtn = document.getElementById("activateNormalBtn");
-const activateCustomBtn = document.getElementById("activateCustomBtn");
 const toggleBellBtn = document.getElementById("toggleBell");
 const statusEl = document.getElementById("status");
 
@@ -150,9 +149,9 @@ adminPasswordEl?.addEventListener("keydown", (e) => {
 function activateMode(mode) {
   if (mode === "custom" && loadCustomSchedule().length === 0) {
     if (statusEl) {
-      statusEl.innerText = "Jadwal Custom masih kosong. Isi & simpan dulu di tab Custom sebelum diaktifkan.";
+      statusEl.innerText = "Jadwal Custom masih kosong. Isi & simpan dulu di editor sebelum diaktifkan.";
     }
-    return;
+    return false;
   }
 
   App.mode = mode;
@@ -171,10 +170,11 @@ function activateMode(mode) {
       ? "Mode Custom diaktifkan (jadwal dari editor)."
       : "Mode Normal diaktifkan.";
   }
+
+  return true;
 }
 
 activateNormalBtn?.addEventListener("click", () => activateMode("normal"));
-activateCustomBtn?.addEventListener("click", () => activateMode("custom"));
 
 // Tab switching di dalam admin panel (Normal / Custom / Ujian) - ini CUMA
 // pindah tampilan yang lagi diliat admin, BUKAN ganti mode aktif. Mode
@@ -201,11 +201,39 @@ toggleBellBtn?.addEventListener("click", () => {
 // ==========================
 // EDITOR MODE CUSTOM
 // ==========================
+const openCustomEditorBtn = document.getElementById("openCustomEditorBtn");
+const customModalOverlay = document.getElementById("customModalOverlay");
+const closeCustomModalBtn = document.getElementById("closeCustomModalBtn");
 const customScheduleRowsEl = document.getElementById("customScheduleRows");
 const customAddRowBtn = document.getElementById("customAddRowBtn");
 const customLoadTodayBtn = document.getElementById("customLoadTodayBtn");
 const customSaveBtn = document.getElementById("customSaveBtn");
 const customSaveStatusEl = document.getElementById("customSaveStatus");
+const activateCustomBtn = document.getElementById("activateCustomBtn");
+
+function openCustomModal() {
+  if (!customModalOverlay) return;
+  renderCustomRows(); // pastikan nampilin data terbaru dari localStorage tiap dibuka
+  customModalOverlay.style.display = "flex";
+}
+
+function closeCustomModal() {
+  if (customModalOverlay) customModalOverlay.style.display = "none";
+}
+
+openCustomEditorBtn?.addEventListener("click", openCustomModal);
+closeCustomModalBtn?.addEventListener("click", closeCustomModal);
+
+// Klik di area gelap luar modal-content juga nutup (bukan pas klik di
+// dalam modal-content-nya)
+customModalOverlay?.addEventListener("click", (e) => {
+  if (e.target === customModalOverlay) closeCustomModal();
+});
+
+activateCustomBtn?.addEventListener("click", () => {
+  const success = activateMode("custom");
+  if (success) closeCustomModal(); // langsung tutup modal begitu berhasil diaktifkan
+});
 
 // Working array di memori selagi admin ngedit - baru ditulis ke
 // localStorage pas klik Simpan (biar nggak ke-save tiap ketikan).
