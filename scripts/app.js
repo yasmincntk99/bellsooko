@@ -128,13 +128,27 @@ function getNowHHMM() {
   return formatTime(now.getHours(), now.getMinutes());
 }
 
-// Buat hitung waktu trigger "1 menit sebelum". Handle wrap tengah malam
-// (walau nggak kepakai buat jam sekolah, tetep aman kalau dipanggil jam 00:xx).
+// Buat hitung waktu trigger "1 menit sebelum" (dipakai musik12 & pulang,
+// yang masih cukup aman dicek per-menit).
 function subtractMinutes(hhmm, minutesToSubtract) {
   const [h, m] = hhmm.split(":").map(Number);
   let total = h * 60 + m - minutesToSubtract;
   if (total < 0) total += 24 * 60;
   return formatTime(Math.floor(total / 60), total % 60);
+}
+
+// Hitung berapa detik lagi menuju jam "HH:MM" (asumsi detik ke-00) dari
+// waktu sekarang. Dipakai buat trigger yang butuh presisi detik (JP: 15
+// detik sebelum) - JANGAN dicocokin pakai "===" persis, karena clock jalan
+// per-1-detik dan interval bisa meleset dikit (apalagi kalau tab browser
+// di-minimize, throttle browser bisa bikin timer ini kelewat). Dengan
+// hitung mundur + pengecekan "<=", begitu jendelanya kelewatan dikit pun
+// tetep ke-trigger, bukan silently missed.
+function secondsUntil(hhmm) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const now = clock.currentTime;
+  const target = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, m, 0, 0);
+  return Math.round((target.getTime() - now.getTime()) / 1000);
 }
 
 // ==========================
@@ -432,12 +446,13 @@ async function speak(text, lang) {
   });
 }
 
-// Bel di momen ini dipilih otomatis via playChimeFor() berdasarkan tipe sesi
-// (masuk vs istirahat). Sesi PERTAMA hari itu (isFirstSessionOfDay = true)
-// pakai flow "pembukaan hari": jeda 5 detik lalu pengumuman lengkap 3 bahasa
-// dari ANNOUNCEMENTS, ditutup Indonesia Raya. Sesi lainnya pakai flow
-// "transisi rutin": jeda 1.5 detik lalu template singkat 3 bahasa.
-async function playSessionAnnouncement(session, dayGroup, isFirstSessionOfDay) {
+// Bel di momen ini dipilih otomatis via playChimeFor() berdasarkan tipe sesi.
+// Sesi PERTAMA hari itu (isFirstSessionOfDay = true) pakai flow "pembukaan
+// hari": jeda 5 detik lalu pengumuman lengkap 3 bahasa dari ANNOUNCEMENTS,
+// ditutup Indonesia Raya. Sesi lainnya pakai flow "transisi rutin": jeda
+// pendek lalu template singkat 3 bahasa yang nyebut countdown-nya (60 detik
+// buat istirahat/special, 15 detik buat JP - lihat checkTransitionAnnouncements).
+async function playSessionAnnouncement(session, dayGroup, isFirstSessionOfDay, countdownSeconds = 60) {
   playChimeFor(session);
 
   if (isFirstSessionOfDay) {
@@ -462,14 +477,15 @@ async function playSessionAnnouncement(session, dayGroup, isFirstSessionOfDay) {
     return;
   }
 
-  await sleep(1500);
+  // Jeda lebih pendek buat JP (jendela cuma 15 detik, nggak boleh boros waktu)
+  await sleep(countdownSeconds < 60 ? 500 : 1500);
 
   if (!("speechSynthesis" in window)) return;
 
   const langs = getLangsForDay(dayGroup);
   for (const lang of langs) {
     const template = TRANSITION_TEMPLATES[lang] || TRANSITION_TEMPLATES["id-ID"];
-    await speak(template(session.name), lang);
+    await speak(template(session.name, countdownSeconds), lang);
   }
 }
 
@@ -482,12 +498,36 @@ async function playSessionAnnouncement(session, dayGroup, isFirstSessionOfDay) {
 // diterjemahkan - dipakai apa adanya di semua bahasa, karena itu istilah
 // internal sekolah, bukan kosakata umum yang punya padanan baku.
 // ==========================
+// ==========================
+// TRANSITION & DISMISSAL ANNOUNCEMENT (TTS, 3 bahasa - sama kayak
+// pengumuman pagi harinya, bahasa ke-3 ngikut dayGroup)
+// ⚠️ TODO: teks JA/KO/AR masih DRAFT, sama seperti ANNOUNCEMENTS di atas,
+// belum dicek penutur asli.
+// Nama sesi berikutnya (mis. "JP 5", "Istirahat 1") sengaja TIDAK
+// diterjemahkan - dipakai apa adanya di semua bahasa, karena itu istilah
+// internal sekolah, bukan kosakata umum yang punya padanan baku.
+//
+// Kalimatnya nyebut durasi countdown yang SESUAI kejadiannya - JP cuma
+// 15 detik sebelum, sisanya (istirahat/special) 1 menit sebelum. Kalau
+// nggak dibedain, TTS-nya bakal ngomong info yang salah (misal bilang
+// "satu menit lagi" padahal cuma 15 detik).
+// ==========================
 const TRANSITION_TEMPLATES = {
-  "id-ID": (name) => `Perhatian, satu menit lagi memasuki ${name}.`,
-  "en-US": (name) => `Attention, one minute remaining until ${name}.`,
-  "ja-JP": (name) => `ご案内いたします。まもなく1分後に${name}が始まります。`,
-  "ko-KR": (name) => `안내 말씀 드립니다. 1분 후에 ${name}이 시작됩니다.`,
-  "ar-SA": (name) => `تنبيه، سيبدأ ${name} بعد دقيقة واحدة.`
+  "id-ID": (name, seconds) => seconds < 60
+    ? `Perhatian, ${seconds} detik lagi memasuki ${name}.`
+    : `Perhatian, satu menit lagi memasuki ${name}.`,
+  "en-US": (name, seconds) => seconds < 60
+    ? `Attention, ${seconds} seconds remaining until ${name}.`
+    : `Attention, one minute remaining until ${name}.`,
+  "ja-JP": (name, seconds) => seconds < 60
+    ? `ご案内いたします。まもなく${seconds}秒後に${name}が始まります。`
+    : `ご案内いたします。まもなく1分後に${name}が始まります。`,
+  "ko-KR": (name, seconds) => seconds < 60
+    ? `안내 말씀 드립니다. ${seconds}초 후에 ${name}이 시작됩니다.`
+    : `안내 말씀 드립니다. 1분 후에 ${name}이 시작됩니다.`,
+  "ar-SA": (name, seconds) => seconds < 60
+    ? `تنبيه، سيبدأ ${name} بعد ${seconds} ثانية.`
+    : `تنبيه، سيبدأ ${name} بعد دقيقة واحدة.`
 };
 
 const DISMISSAL_TEXTS = {
@@ -520,8 +560,11 @@ async function playDismissalAnnouncement(dayGroup) {
 }
 
 // Dicek tiap detik untuk SEMUA entri jadwal (termasuk entri pertama hari
-// itu), kalau sekarang persis H-1 menit dari jam mulainya, jalankan
-// playSessionAnnouncement (chime yang sesuai + isi pengumumannya).
+// itu). Jendela waktunya beda per tipe:
+// - "jp"                    -> 15 detik sebelum jam mulainya
+// - lainnya (istirahat/special, termasuk sesi pertama) -> 60 detik sebelum
+// Pakai secondsUntil() + "<=" (bukan cocokin persis), biar nggak silently
+// missed kalau tick clock-nya meleset dikit (lihat catatan di secondsUntil).
 // Generic - otomatis jalan buat JP, istirahat, Upacara/Literasi/Istighosah,
 // MAUPUN "Sholat Jumat", tanpa perlu ditulis satu-satu.
 //
@@ -538,12 +581,17 @@ function checkTransitionAnnouncements() {
 
   for (let i = 0; i < App.schedule.length; i++) {
     const session = App.schedule[i];
-    const triggerTime = subtractMinutes(session.start, 1);
+    const countdownSeconds = session.type === "jp" ? 15 : 60;
+    const secondsLeft = secondsUntil(session.start);
     const key = `${todayKey}-transisi-${i}`;
 
-    if (nowHHMM === triggerTime && !App.triggeredKeys.has(key)) {
+    if (
+      secondsLeft <= countdownSeconds &&
+      secondsLeft >= 0 &&
+      !App.triggeredKeys.has(key)
+    ) {
       App.triggeredKeys.add(key);
-      playSessionAnnouncement(session, dayGroup, i === 0);
+      playSessionAnnouncement(session, dayGroup, i === 0, countdownSeconds);
     }
   }
 
