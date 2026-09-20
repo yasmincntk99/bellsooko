@@ -42,6 +42,13 @@ const indonesiaRaya = new Audio("/assets/sounds/indoraya.mp3");
 const bellIstirahat = new Audio("/assets/sounds/bellistirahat.mp3");
 // ⚠️ FILE BELUM ADA: belljp.mp3 belum di-upload ke assets/sounds/.
 const bellJp = new Audio("/assets/sounds/belljp.mp3");
+// ⚠️ Nama file ini ada SPASI ("bell pulang.mp3", bukan "bellpulang.mp3") -
+// beda pola dari file lain (bellmasuk/bellistirahat/belljp yang nggak pakai
+// spasi). Di-encode pakai encodeURI() biar aman diakses browser, tapi
+// disarankan rename di repo jadi tanpa spasi biar konsisten & nggak rawan
+// typo lagi (ini persis jenis bug yang bikin bel pertama sempet nggak
+// bunyi di awal-awal project ini).
+const bellPulang = new Audio(encodeURI("/assets/sounds/bell pulang.mp3"));
 // ⚠️ FILE BELUM ADA JUGA: musik12.mp3 (musik jam 12.00 Senin-Kamis / 12.45 Jumat).
 const musik12 = new Audio("/assets/sounds/musik12.mp3");
 
@@ -68,7 +75,7 @@ function unlockAudio(audio) {
 }
 
 document.body.addEventListener("click", () => {
-  [bellMasuk, indonesiaRaya, bellIstirahat, bellJp, musik12].forEach(unlockAudio);
+  [bellMasuk, indonesiaRaya, bellIstirahat, bellJp, bellPulang, musik12].forEach(unlockAudio);
 }, { once: true });
 
 // ==========================
@@ -334,6 +341,13 @@ function playBellJp() {
   bellJp.play().catch(() => {});
 }
 
+function playBellPulang() {
+  if (!App.isBellEnabled) return;
+
+  bellPulang.currentTime = 0;
+  bellPulang.play().catch(() => {});
+}
+
 function playMusik12() {
   if (!App.isBellEnabled) return;
 
@@ -549,7 +563,7 @@ function getLangsForDay(dayGroup) {
 // pendek (1.5 detik) daripada jeda 5 detik di pembukaan pagi, karena ini
 // pengumuman rutin & singkat, bukan sesi pembukaan hari.
 async function playDismissalAnnouncement(dayGroup) {
-  playBellMasuk(); // dismissal pakai bel masuk juga (bukan bel istirahat)
+  playBellPulang();
   await sleep(1500);
 
   const langs = getLangsForDay(dayGroup);
@@ -659,6 +673,7 @@ document.addEventListener("DOMContentLoaded", start);
 window.playBellMasuk = playBellMasuk;
 window.playBellIstirahat = playBellIstirahat;
 window.playBellJp = playBellJp;
+window.playBellPulang = playBellPulang;
 window.playIndonesiaRaya = playIndonesiaRaya;
 window.playMusik12 = playMusik12;
 window.testAnnouncement = (dayGroup) => {
