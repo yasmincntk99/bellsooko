@@ -38,8 +38,9 @@ const modeIndicator = document.getElementById("mode-indicator");
 
 const gearBtn = document.getElementById("gearBtn");
 const adminPanel = document.getElementById("adminPanel");
-const modeSelect = document.getElementById("modeSelect");
-const applyModeBtn = document.getElementById("applyMode");
+const activeModeLabelEl = document.getElementById("activeModeLabel");
+const activateNormalBtn = document.getElementById("activateNormalBtn");
+const activateCustomBtn = document.getElementById("activateCustomBtn");
 const toggleBellBtn = document.getElementById("toggleBell");
 const statusEl = document.getElementById("status");
 
@@ -141,30 +142,22 @@ adminPasswordEl?.addEventListener("keydown", (e) => {
 });
 
 // Mode "exam" / "hybrid" masih belum ada jadwalnya -> jangan pura-pura
-// jalan, kasih tau terus terang ke admin daripada diam-diam nggak ngefek.
-// "custom" sudah aktif (lihat editor jadwal custom di bawah).
-const MODES_BELUM_TERSEDIA = ["exam", "hybrid"];
-
-applyModeBtn?.addEventListener("click", () => {
-  const selected = modeSelect.value;
-
-  if (MODES_BELUM_TERSEDIA.includes(selected)) {
+// Mode "exam" / "hybrid" masih belum ada jadwalnya -> tab Ujian sengaja
+// cuma placeholder informatif, nggak ada tombol aktivasi dulu, daripada
+// pura-pura jalan padahal belum ada logic-nya.
+//
+// Satu fungsi generic buat aktivasi mode, dipanggil dari tombol tiap tab.
+function activateMode(mode) {
+  if (mode === "custom" && loadCustomSchedule().length === 0) {
     if (statusEl) {
-      statusEl.innerText = `Mode "${modeSelect.options[modeSelect.selectedIndex].text}" belum tersedia. Tetap memakai jadwal Normal.`;
-    }
-    modeSelect.value = "normal";
-    return;
-  }
-
-  if (selected === "custom" && loadCustomSchedule().length === 0) {
-    if (statusEl) {
-      statusEl.innerText = "Jadwal Custom masih kosong. Isi & simpan dulu di editor Mode Custom di bawah sebelum di-apply.";
+      statusEl.innerText = "Jadwal Custom masih kosong. Isi & simpan dulu di tab Custom sebelum diaktifkan.";
     }
     return;
   }
 
-  App.mode = selected;
-  modeIndicator.textContent = `MODE: ${selected.toUpperCase()}`;
+  App.mode = mode;
+  modeIndicator.textContent = `MODE: ${mode.toUpperCase()}`;
+  if (activeModeLabelEl) activeModeLabelEl.textContent = mode.toUpperCase();
 
   // Paksa refresh jadwal SEKARANG JUGA, jangan nunggu pergantian hari
   // otomatis di updateSession() - biar mode baru langsung kepakai.
@@ -174,10 +167,27 @@ applyModeBtn?.addEventListener("click", () => {
   App.triggeredKeys = new Set();
 
   if (statusEl) {
-    statusEl.innerText = selected === "custom"
-      ? "Mode Custom diterapkan (jadwal dari editor)."
-      : "Mode Normal diterapkan.";
+    statusEl.innerText = mode === "custom"
+      ? "Mode Custom diaktifkan (jadwal dari editor)."
+      : "Mode Normal diaktifkan.";
   }
+}
+
+activateNormalBtn?.addEventListener("click", () => activateMode("normal"));
+activateCustomBtn?.addEventListener("click", () => activateMode("custom"));
+
+// Tab switching di dalam admin panel (Normal / Custom / Ujian) - ini CUMA
+// pindah tampilan yang lagi diliat admin, BUKAN ganti mode aktif. Mode
+// aktif cuma berubah kalau tombol "Aktifkan Mode ..." di tab itu diklik.
+document.querySelectorAll(".admin-tab-btn").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const targetTab = btn.dataset.tab;
+
+    document.querySelectorAll(".admin-tab-btn").forEach(b => b.classList.toggle("active", b === btn));
+    document.querySelectorAll(".admin-tab-page").forEach(page => {
+      page.style.display = page.dataset.tabPage === targetTab ? "" : "none";
+    });
+  });
 });
 
 toggleBellBtn?.addEventListener("click", () => {
