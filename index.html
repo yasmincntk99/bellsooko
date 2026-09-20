@@ -104,29 +104,55 @@
 
       <!-- ISI ADMIN PANEL SEBENARNYA: disembunyikan sampai login berhasil -->
       <div class="admin-body" id="adminControls" style="display:none;">
-        <label for="modeSelect">Mode</label>
-        <select id="modeSelect">
-          <option value="normal">Normal</option>
-          <option value="exam">Ujian</option>
-          <option value="hybrid">Hybrid</option>
-          <option value="custom">Custom</option>
-        </select>
 
-        <button id="applyMode">Apply Mode</button>
-        <button id="toggleBell">Toggle Bell</button>
+        <!-- HEADER SHELL: tetap kelihatan di semua tab -->
+        <div class="admin-shell-header">
+          Mode aktif sekarang: <strong id="activeModeLabel">NORMAL</strong>
+        </div>
 
+        <!-- TAB BAR: tetap kelihatan di semua tab -->
+        <div class="admin-tabs">
+          <button class="admin-tab-btn active" data-tab="normal">Normal</button>
+          <button class="admin-tab-btn" data-tab="custom">Custom</button>
+          <button class="admin-tab-btn" data-tab="ujian">Ujian</button>
+        </div>
+
+        <!-- KONTEN TAB: cuma 1 yang keliatan tergantung tab yang dipilih -->
+
+        <div class="admin-tab-page" data-tab-page="normal">
+          <p style="opacity:.7; font-size:.85em;">
+            Jadwal tetap (Senin / Selasa-Kamis / Jumat), nggak ada yang bisa
+            diedit di sini - ubah lewat kode kalau jadwal resminya berubah.
+          </p>
+          <button id="activateNormalBtn">Aktifkan Mode Normal</button>
+        </div>
+
+        <div class="admin-tab-page" data-tab-page="custom" style="display:none;">
+          <p style="opacity:.7; font-size:.85em; margin-top:0;">
+            Buat event dadakan. Nggak terikat hari tertentu - dipakai apa
+            adanya sampai mode diganti balik ke Normal. Isi jam mulai &
+            selesai tiap sesi, lalu Simpan, baru Aktifkan.
+          </p>
+          <div id="customScheduleRows"></div>
+          <button id="customAddRowBtn">+ Tambah Sesi</button>
+          <button id="customLoadTodayBtn">Muat dari Jadwal Hari Ini</button>
+          <button id="customSaveBtn">💾 Simpan Jadwal Custom</button>
+          <p id="customSaveStatus" style="font-size:.8em; opacity:.8;"></p>
+          <button id="activateCustomBtn">Aktifkan Mode Custom</button>
+        </div>
+
+        <div class="admin-tab-page" data-tab-page="ujian" style="display:none;">
+          <p style="opacity:.7; font-size:.85em;">
+            Mode Ujian belum dikonfigurasi. Kasih tau aturan jadwalnya
+            (berapa mata pelajaran per hari, durasi tiap mapel, ada istirahat
+            di antaranya atau enggak) buat mulai digarap - sama kayak proses
+            kita bikin Mode Normal & Custom sebelumnya.
+          </p>
+        </div>
+
+        <!-- FOOTER SHELL: tetap kelihatan di semua tab -->
         <hr />
-        <h4 style="margin-bottom:4px;">Mode Custom - Edit Jadwal</h4>
-        <p style="opacity:.7; font-size:.8em; margin-top:0;">
-          Buat event dadakan. Nggak terikat hari tertentu - dipakai apa
-          adanya sampai mode diganti balik ke Normal. Isi jam mulai & selesai
-          tiap sesi, lalu Simpan.
-        </p>
-        <div id="customScheduleRows"></div>
-        <button id="customAddRowBtn">+ Tambah Sesi</button>
-        <button id="customLoadTodayBtn">Muat dari Jadwal Hari Ini</button>
-        <button id="customSaveBtn">💾 Simpan Jadwal Custom</button>
-        <p id="customSaveStatus" style="font-size:.8em; opacity:.8;"></p>
+        <button id="toggleBell">Toggle Bell</button>
 
         <hr />
         <p style="opacity:.6; font-size:.8em;">Testing (bunyi asli, hati-hati volume):</p>
