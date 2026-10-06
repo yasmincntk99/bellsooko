@@ -136,12 +136,29 @@
         </div>
 
         <div class="admin-tab-page" data-tab-page="ujian" style="display:none;">
-          <p style="opacity:.7; font-size:.85em;">
-            Mode Ujian belum dikonfigurasi. Kasih tau aturan jadwalnya
-            (berapa mata pelajaran per hari, durasi tiap mapel, ada istirahat
-            di antaranya atau enggak) buat mulai digarap - sama kayak proses
-            kita bikin Mode Normal & Custom sebelumnya.
+          <p style="opacity:.7; font-size:.85em; margin-top:0;">
+            Jadwal digenerate otomatis dari 3 pengaturan di bawah - nggak
+            perlu isi jam satu-satu kayak Custom. Pola: Bel Masuk → Mapel 1
+            (90 menit) → Istirahat → Mapel 2 → ... → Bel Pulang.
           </p>
+
+          <label for="examStartTime">Jam Mulai (bel masuk)</label>
+          <input type="time" id="examStartTime" value="07:30" />
+
+          <label for="examMapelCount">Jumlah Mata Pelajaran</label>
+          <input type="number" id="examMapelCount" value="2" min="1" max="6" />
+
+          <label for="examBreakDuration">Durasi Istirahat Antar-Mapel</label>
+          <select id="examBreakDuration">
+            <option value="15">15 menit</option>
+            <option value="30">30 menit</option>
+          </select>
+
+          <button id="examPreviewBtn">👁 Preview Jadwal</button>
+          <div id="examPreviewRows" style="font-size:.85em; margin:8px 0;"></div>
+
+          <button id="activateExamBtn">Aktifkan Mode Ujian</button>
+          <p id="examStatus" style="font-size:.8em; opacity:.8;"></p>
         </div>
 
         <!-- FOOTER SHELL: tetap kelihatan di semua tab -->

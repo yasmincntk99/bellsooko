@@ -140,16 +140,18 @@ adminPasswordEl?.addEventListener("keydown", (e) => {
   if (e.key === "Enter") handleAdminLogin();
 });
 
-// Mode "exam" / "hybrid" masih belum ada jadwalnya -> jangan pura-pura
-// Mode "exam" / "hybrid" masih belum ada jadwalnya -> tab Ujian sengaja
-// cuma placeholder informatif, nggak ada tombol aktivasi dulu, daripada
-// pura-pura jalan padahal belum ada logic-nya.
-//
 // Satu fungsi generic buat aktivasi mode, dipanggil dari tombol tiap tab.
 function activateMode(mode) {
   if (mode === "custom" && loadCustomSchedule().length === 0) {
     if (statusEl) {
       statusEl.innerText = "Jadwal Custom masih kosong. Isi & simpan dulu di editor sebelum diaktifkan.";
+    }
+    return false;
+  }
+
+  if (mode === "exam" && !loadExamConfig()) {
+    if (statusEl) {
+      statusEl.innerText = "Mode Ujian belum di-setup. Isi jam mulai, jumlah mapel & durasi istirahat dulu, lalu klik Aktifkan.";
     }
     return false;
   }
@@ -165,11 +167,12 @@ function activateMode(mode) {
   App.lastBellKey = null;
   App.triggeredKeys = new Set();
 
-  if (statusEl) {
-    statusEl.innerText = mode === "custom"
-      ? "Mode Custom diaktifkan (jadwal dari editor)."
-      : "Mode Normal diaktifkan.";
-  }
+  const modeMessages = {
+    normal: "Mode Normal diaktifkan.",
+    custom: "Mode Custom diaktifkan (jadwal dari editor).",
+    exam: "Mode Ujian diaktifkan (jadwal digenerate dari pengaturan)."
+  };
+  if (statusEl) statusEl.innerText = modeMessages[mode] || `Mode ${mode} diaktifkan.`;
 
   return true;
 }
@@ -344,6 +347,80 @@ customSaveBtn?.addEventListener("click", () => {
 renderCustomRows(); // tampilkan isi localStorage (kalau ada) begitu halaman dibuka
 
 // ==========================
+// EDITOR MODE UJIAN
+// Beda dari Custom: cuma 3 input (jam mulai, jumlah mapel, durasi
+// istirahat), jadwal di-generate otomatis - bukan diketik manual per sesi.
+// ==========================
+const examStartTimeEl = document.getElementById("examStartTime");
+const examMapelCountEl = document.getElementById("examMapelCount");
+const examBreakDurationEl = document.getElementById("examBreakDuration");
+const examPreviewBtn = document.getElementById("examPreviewBtn");
+const examPreviewRowsEl = document.getElementById("examPreviewRows");
+const activateExamBtn = document.getElementById("activateExamBtn");
+const examStatusEl = document.getElementById("examStatus");
+
+// Isi ulang form dari config tersimpan (kalau ada), biar admin nggak perlu
+// input ulang dari nol tiap buka tab Ujian.
+function loadExamFormFromStorage() {
+  const config = loadExamConfig();
+  if (!config) return;
+
+  if (examStartTimeEl) examStartTimeEl.value = config.startTime;
+  if (examMapelCountEl) examMapelCountEl.value = config.mapelCount;
+  if (examBreakDurationEl) examBreakDurationEl.value = String(config.breakMinutes);
+}
+
+function readExamFormInputs() {
+  const startTime = examStartTimeEl?.value;
+  const mapelCount = parseInt(examMapelCountEl?.value, 10);
+  const breakMinutes = parseInt(examBreakDurationEl?.value, 10);
+
+  if (!startTime || !Number.isInteger(mapelCount) || mapelCount < 1) {
+    return null;
+  }
+
+  return { startTime, mapelCount, breakMinutes };
+}
+
+function renderExamPreview(rows) {
+  if (!examPreviewRowsEl) return;
+
+  examPreviewRowsEl.innerHTML = rows.length === 0
+    ? "<em>Isi jam mulai & jumlah mapel dulu.</em>"
+    : rows.map(r => `${r.name}: ${r.start}–${r.end}`).join("<br>");
+}
+
+examPreviewBtn?.addEventListener("click", () => {
+  const inputs = readExamFormInputs();
+  if (!inputs) {
+    if (examStatusEl) examStatusEl.innerText = "⚠️ Isi jam mulai & jumlah mapel (minimal 1) dulu.";
+    return;
+  }
+
+  const rows = generateExamSchedule(inputs.startTime, inputs.mapelCount, inputs.breakMinutes);
+  renderExamPreview(rows);
+  if (examStatusEl) {
+    examStatusEl.innerText = `Preview: ${rows.length} sesi, selesai jam ${rows[rows.length - 1].end}.`;
+  }
+});
+
+activateExamBtn?.addEventListener("click", () => {
+  const inputs = readExamFormInputs();
+  if (!inputs) {
+    if (examStatusEl) examStatusEl.innerText = "⚠️ Isi jam mulai & jumlah mapel (minimal 1) dulu.";
+    return;
+  }
+
+  saveExamConfig(inputs);
+  const success = activateMode("exam");
+  if (success && examStatusEl) {
+    examStatusEl.innerText = "✅ Mode Ujian diaktifkan.";
+  }
+});
+
+loadExamFormFromStorage();
+
+// ==========================
 // UTIL
 // ==========================
 function formatTime(h, m) {
@@ -361,6 +438,14 @@ function subtractMinutes(hhmm, minutesToSubtract) {
   const [h, m] = hhmm.split(":").map(Number);
   let total = h * 60 + m - minutesToSubtract;
   if (total < 0) total += 24 * 60;
+  return formatTime(Math.floor(total / 60), total % 60);
+}
+
+// Kebalikan subtractMinutes - dipakai generateExamSchedule buat ngitung
+// jam selesai tiap blok (mapel/istirahat) dari jam mulai + durasinya.
+function addMinutes(hhmm, minutesToAdd) {
+  const [h, m] = hhmm.split(":").map(Number);
+  const total = (h * 60 + m + minutesToAdd) % (24 * 60);
   return formatTime(Math.floor(total / 60), total % 60);
 }
 
@@ -474,6 +559,11 @@ function generateSchedule(date = clock.currentTime) {
     return loadCustomSchedule(); // nggak peduli hari apa - dipakai apa adanya
   }
 
+  if (App.mode === "exam") {
+    const config = loadExamConfig();
+    return config ? generateExamSchedule(config.startTime, config.mapelCount, config.breakMinutes) : [];
+  }
+
   switch (getDayGroup(date)) {
     case "senin":
       return SCHEDULE_SENIN;
@@ -484,6 +574,61 @@ function generateSchedule(date = clock.currentTime) {
     default:
       return [];
   }
+}
+
+// ==========================
+// MODE UJIAN - penyimpanan & generator
+// Beda dari Custom: admin cuma isi 3 angka (jam mulai, jumlah mapel, durasi
+// istirahat), jadwalnya di-generate otomatis - bukan diketik manual tiap
+// sesi. Pola: Mapel 1 (90 menit) -> Istirahat -> Mapel 2 -> ... -> Mapel N.
+//
+// Tipe sesi: SEMUA mapel dikasih type "special" (bukan "jp"), supaya
+// pakai chime bellmasuk.mp3 di T-60detik (bukan belljp.mp3 di T-15detik -
+// itu dirancang buat pergantian 45 menitan di jadwal normal, kejepit kalau
+// dipaksa buat durasi ujian 90 menit). Istirahat dikasih type "istirahat"
+// seperti biasa, otomatis dapat bellistirahat.mp3.
+// ==========================
+const EXAM_CONFIG_KEY = "bellsooko_exam_config";
+
+function loadExamConfig() {
+  try {
+    const raw = localStorage.getItem(EXAM_CONFIG_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    console.warn("Gagal baca config ujian dari localStorage:", e);
+    return null;
+  }
+}
+
+function saveExamConfig(config) {
+  try {
+    localStorage.setItem(EXAM_CONFIG_KEY, JSON.stringify(config));
+    return true;
+  } catch (e) {
+    console.warn("Gagal simpan config ujian ke localStorage:", e);
+    return false;
+  }
+}
+
+const EXAM_MAPEL_DURATION_MINUTES = 90;
+
+function generateExamSchedule(startTime, mapelCount, breakMinutes) {
+  const result = [];
+  let cursor = startTime;
+
+  for (let i = 1; i <= mapelCount; i++) {
+    const end = addMinutes(cursor, EXAM_MAPEL_DURATION_MINUTES);
+    result.push({ name: `Mapel ${i}`, start: cursor, end, type: "special" });
+    cursor = end;
+
+    if (i < mapelCount) {
+      const breakEnd = addMinutes(cursor, breakMinutes);
+      result.push({ name: `Istirahat Ujian ${i}`, start: cursor, end: breakEnd, type: "istirahat" });
+      cursor = breakEnd;
+    }
+  }
+
+  return result;
 }
 
 // ==========================
@@ -763,15 +908,6 @@ async function playSessionAnnouncement(session, dayGroup, isFirstSessionOfDay, c
 // Nama sesi berikutnya (mis. "JP 5", "Istirahat 1") sengaja TIDAK
 // diterjemahkan - dipakai apa adanya di semua bahasa, karena itu istilah
 // internal sekolah, bukan kosakata umum yang punya padanan baku.
-// ==========================
-// ==========================
-// TRANSITION & DISMISSAL ANNOUNCEMENT (TTS, 3 bahasa - sama kayak
-// pengumuman pagi harinya, bahasa ke-3 ngikut dayGroup)
-// ⚠️ TODO: teks JA/KO/AR masih DRAFT, sama seperti ANNOUNCEMENTS di atas,
-// belum dicek penutur asli.
-// Nama sesi berikutnya (mis. "JP 5", "Istirahat 1") sengaja TIDAK
-// diterjemahkan - dipakai apa adanya di semua bahasa, karena itu istilah
-// internal sekolah, bukan kosakata umum yang punya padanan baku.
 //
 // Kalimatnya nyebut durasi countdown yang SESUAI kejadiannya - JP cuma
 // 15 detik sebelum, sisanya (istirahat/special) 1 menit sebelum. Kalau
@@ -851,13 +987,22 @@ function checkTransitionAnnouncements() {
     const secondsLeft = secondsUntil(session.start);
     const key = `${todayKey}-transisi-${i}`;
 
+    // Flow "pembukaan hari" (jeda 5 detik + ANNOUNCEMENTS lengkap + Indonesia
+    // Raya) HANYA relevan buat Mode Normal, karena isi ANNOUNCEMENTS-nya
+    // spesifik ("menuju lapangan upacara", "kegiatan literasi", dst) - kalau
+    // dipakai juga buat entri pertama Mode Custom/Ujian, bisa muter pesan
+    // yang nggak nyambung sama sesi aslinya (misal ngajak upacara padahal
+    // yang dimulai itu ujian mapel 1). Mode lain tetap dapat chime + TTS
+    // transisi singkat seperti biasa, cuma tanpa flow pembukaan yang spesifik itu.
+    const isFirstSessionOfDay = i === 0 && App.mode === "normal";
+
     if (
       secondsLeft <= countdownSeconds &&
       secondsLeft >= 0 &&
       !App.triggeredKeys.has(key)
     ) {
       App.triggeredKeys.add(key);
-      playSessionAnnouncement(session, dayGroup, i === 0, countdownSeconds);
+      playSessionAnnouncement(session, dayGroup, isFirstSessionOfDay, countdownSeconds);
     }
   }
 
